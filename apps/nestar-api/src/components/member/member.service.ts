@@ -33,7 +33,7 @@ export class MemberService {
             const result = await this.memberModel.create(input);
             result.accessToken = await this.authService.createToken(result);
             return result;
-        } catch (err) { //@ts-ignore
+        } catch (err) {
             console.log("Error, Service.model: ", err.message);
             throw new BadRequestException(Message.USED_MEMBER_NICK_OR_PHONE);
         }
@@ -87,9 +87,9 @@ export class MemberService {
                 targetMember.memberViews++;
             }
 
-            const likeInput = {memberId: memberId, likeRefId: targetId, likeGroup: LikeGroup.MEMBER};
+            const likeInput = {memberId: memberId, likeRefId: targetId, likeGroup: LikeGroup.MEMBER};//@ts-ignore
             targetMember.meLiked = await this.likeService.checkLikeExistence(likeInput);
-        
+            //@ts-ignore
             targetMember.meFollowed = await this.checkSubscription(memberId, targetId);
         }
 

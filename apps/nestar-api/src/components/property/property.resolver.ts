@@ -1,10 +1,10 @@
-import { Args, Mutation, Resolver } from "@nestjs/graphql";
 import { PropertyService } from "./property.service";
 import { Properties, Property } from "../../libs/dto/property/property";
 import { AgentPropertiesInquiry, AllPropertiesInquiry, OrdinaryInquiry, PropertiesInquiry, PropertyInput } from "../../libs/dto/property/property.input";
 import { Roles } from "../auth/decorators/roles.decorator";
 import { MemberType } from "../../libs/enums/member.enum";
-import { Query, UseGuards } from "@nestjs/common";
+import { Args, Mutation, Query, Resolver } from "@nestjs/graphql";
+import { UseGuards } from "@nestjs/common";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { AuthMember } from "../auth/decorators/authMember.decorator";
 import { ObjectId } from "mongoose";
@@ -29,7 +29,7 @@ export class PropertyResolver {
         return await this.propertyService.createProperty(input);
     }
 
-    @UseGuards(WithoutGuard) //@ts-ignore
+    @UseGuards(WithoutGuard) 
     @Query((returns) => Property)
     public async getProperty(
         @Args('propertyId') input: string,
@@ -41,7 +41,7 @@ export class PropertyResolver {
     }
 
     @Roles(MemberType.AGENT)
-    @UseGuards(RolesGuard) //@ts-ignore
+    @UseGuards(RolesGuard)
     @Mutation((returns) => Property)
     public async updateProperty(
         @Args('input') input: PropertyUpdate,
@@ -52,7 +52,7 @@ export class PropertyResolver {
         return await this.propertyService.updateProperty(memberId, input);
     }
 
-    @UseGuards(WithoutGuard) //@ts-ignore
+    @UseGuards(WithoutGuard)
     @Query((returns) => Properties)
     public async getProperties(
         @Args('input') input: PropertiesInquiry,
@@ -62,7 +62,7 @@ export class PropertyResolver {
         return await this.propertyService.getProperties(memberId, input);
     }
 
-    @UseGuards(AuthGuard) //@ts-ignore
+    @UseGuards(AuthGuard)
     @Query((returns) => Properties)
     public async getFavorites(
         @Args('input') input: OrdinaryInquiry,
@@ -72,7 +72,7 @@ export class PropertyResolver {
         return await this.propertyService.getFavorites(memberId, input);
     }
 
-    @UseGuards(AuthGuard) //@ts-ignore
+    @UseGuards(AuthGuard)
     @Query((returns) => Properties)
     public async getVisited(
         @Args('input') input: OrdinaryInquiry,
@@ -83,7 +83,7 @@ export class PropertyResolver {
     }
 
     @Roles(MemberType.AGENT)
-    @UseGuards(RolesGuard) //@ts-ignore
+    @UseGuards(RolesGuard)
     @Query((returns) => Properties)
     public async getAgentProperties(
         @Args('input') input: AgentPropertiesInquiry,
@@ -108,7 +108,7 @@ export class PropertyResolver {
 
 
     @Roles(MemberType.ADMIN)
-    @UseGuards(RolesGuard) //@ts-ignore
+    @UseGuards(RolesGuard)
     @Query((returns) => Properties)
     public async getAllPropertiesByAdmin(
         @Args('input') input: AllPropertiesInquiry
@@ -118,7 +118,7 @@ export class PropertyResolver {
     }
 
     @Roles(MemberType.ADMIN)
-    @UseGuards(RolesGuard) //@ts-ignore
+    @UseGuards(RolesGuard)
     @Mutation((returns) => Property)
     public async updatePropertyByAdmin( @Args('input') input: PropertyUpdate ): Promise<Property> {
         console.log("Mutation: updatePropertyByAdmin");
@@ -128,7 +128,7 @@ export class PropertyResolver {
 
 
     @Roles(MemberType.ADMIN)
-    @UseGuards(RolesGuard) //@ts-ignore
+    @UseGuards(RolesGuard)
     @Mutation((returns) => Property)
     public async removePropertyByAdmin( @Args('propertyId') input: string ): Promise<Property> {
         console.log("Mutation: removePropertyByAdmin");

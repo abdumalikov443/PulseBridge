@@ -20,7 +20,7 @@ export class FollowService {
         if (followerId.toString() === followingId.toString()) {
             throw new InternalServerErrorException(Message.SELF_SUBSCRIPTION_DENIED);
         }
-
+        //@ts-ignore
         const targetMember = await this.memberService.getMember(null, followingId);
         if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
 
@@ -44,7 +44,7 @@ export class FollowService {
         }
     }
 
-    public async unsubscribe(followerId: ObjectId, followingId: ObjectId): Promise<Follower> {
+    public async unsubscribe(followerId: ObjectId, followingId: ObjectId): Promise<Follower> { //@ts-ignore
         const targetMember = await this.memberService.getMember(null, followingId);
         if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
         

@@ -5,11 +5,11 @@ import { T } from "./types/common";
 import { pipeline } from "stream";
 
 
-export const availableAgentSorts = ["createdAt", "updatedAt", "memberLikes", "memberViews", "memberRank"];
 export const availableMemberSorts = ["createdAt", "updatedAt", "memberLikes", "memberViews"];
-export const availableOptions = ["propertyBarter", "propertyRent"];
-export const availablePropertySorts = ["createdAt", "updatedAt", "propertyLikes", "propertyViews", "propertyRank", "propertyPrice"];
-export const availableBoardArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 'articleViews'];
+export const availableClinicSorts = ["createdAt", "updatedAt", "clinicLikes", "clinicViews", "clinicRank"];
+export const availableDoctorSorts = ["createdAt", "updatedAt", "doctorLikes", "doctorViews", "doctorRank", "experience"];
+export const availableAppointmentSorts = ["createdAt", "updatedAt", "appointmentDate"];
+export const availableArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 'articleViews'];
 export const availableCommentSorts = ['createdAt', 'updatedAt'];
 
 
@@ -122,12 +122,32 @@ export const lookupFollowerData = {
 };
 
 
+export const lookupClinic = {
+	$lookup: {
+		from: 'clinics',
+		localField: 'clinicId',
+		foreignField: '_id',
+		as: 'clinicData'
+	},
+};
+
+// doctor with its member profile (name, image)
+export const lookupDoctor = {
+	$lookup: {
+		from: 'doctors',
+		localField: 'doctorId',
+		foreignField: '_id',
+		as: 'doctorData',
+		pipeline: [lookupMember, { $unwind: '$memberData' }],
+	},
+};
+
 export const lookupFavorite = {
 	$lookup: {
 		from: 'members',
-		localField: 'favoriteProperty.memberId',
+		localField: 'favoriteTarget.memberId',
 		foreignField: '_id',
-		as: 'favoriteProperty.memberData'
+		as: 'favoriteTarget.memberData'
 	},
 };
 
@@ -135,8 +155,8 @@ export const lookupFavorite = {
 export const lookupVisit = {
 	$lookup: {
 		from: 'members',
-		localField: 'visitedProperty.memberId',
+		localField: 'visitedTarget.memberId',
 		foreignField: '_id',
-		as: 'visitedProperty.memberData'
+		as: 'visitedTarget.memberData'
 	},
 };

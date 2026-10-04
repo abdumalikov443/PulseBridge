@@ -1,6 +1,6 @@
 import { Query, Mutation, Resolver, Args } from '@nestjs/graphql';
 import { MemberService } from './member.service';
-import { AgentsInquiry, LoginInput, MemberInput, MembersInquiry } from '../../libs/dto/member/member.input';
+import { LoginInput, MemberInput, MembersInquiry } from '../../libs/dto/member/member.input';
 import { Member, Members } from '../../libs/dto/member/member';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -41,7 +41,7 @@ export class MemberResolver {
         return await `Hi ${memberNick}`;
     }
 
-    @Roles(MemberType.USER)
+    @Roles(MemberType.PATIENT)
     @UseGuards(AuthGuard)
     @Query(() => String)
     public async checkAuthRoles(@AuthMember() authMember: Member): Promise<string> {
@@ -57,6 +57,9 @@ export class MemberResolver {
     ): Promise<Member> {
         console.log("Mutation: updateMember"); //@ts-ignore
         delete input._id;
+        // role and status are changed only by admin
+        delete input.memberType;
+        delete input.memberStatus;
         return await this.memberService.updateMember(memberId, input);
     }
 
@@ -69,27 +72,6 @@ export class MemberResolver {
         console.log("Mutation: getMember");
         const targetId = shapeIntoMongoObjectId(input)
         return await this.memberService.getMember(memberId, targetId);
-    }
-
-    @UseGuards(WithoutGuard)
-    @Query(() => Members)
-    public async getAgents(
-        @Args('input') input: AgentsInquiry,
-        @AuthMember('_id') memberId: ObjectId
-    ): Promise<Members> {
-        console.log("Query: getAgents");
-        return await this.memberService.getAgents(memberId, input) as unknown as Members;
-    }
-
-    @UseGuards(AuthGuard)
-    @Mutation(() => Member)
-    public async likeTargetMember(
-        @Args("memberId") input: string,
-        @AuthMember('_id') memberId: ObjectId
-    ) :Promise<Member> {
-        console.log("Mutation: likeTargetMember");
-        const likeRefId = shapeIntoMongoObjectId(input);
-        return await this.memberService.likeTargetMember(memberId, likeRefId);
     }
 
     /** ADMIN **/

@@ -5,8 +5,7 @@ import { Like, MeLiked } from '../../libs/dto/like/like';
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { T } from '../../libs/types/common';
 import { Message } from '../../libs/enums/common.enum';
-import { OrdinaryInquiry } from '../../libs/dto/property/property.input';
-import { Properties } from '../../libs/dto/property/property';
+import { OrdinaryInquiry } from '../../libs/dto/common/common.input';
 import { LikeGroup } from '../../libs/enums/like.enum';
 import { lookupFavorite } from '../../libs/config';
 
@@ -43,29 +42,30 @@ export class LikeService {
     }
 
     
-    public async getFavoritesProperties(memberId: ObjectId, input: OrdinaryInquiry): Promise<Properties> {
+    // from: collection of the liked targets ("doctors" | "clinics")
+    public async getFavorites(memberId: ObjectId, input: OrdinaryInquiry, likeGroup: LikeGroup, from: string): Promise<T> {
         const { page, limit } = input;
-        const match: T = { likeGroup: LikeGroup.PROPERTY, memberId: memberId };
+        const match: T = { likeGroup: likeGroup, memberId: memberId };
 
         const data: T = await this.likeModel.aggregate([
             {$match: match},
             {$sort: { updatedAt: -1 }},
             {
                 $lookup: {
-                    from: "properties",
+                    from: from,
                     localField: "likeRefId",
                     foreignField: "_id",
-                    as: "favoriteProperty",
+                    as: "favoriteTarget",
                 },
             },
-            { $unwind: "$favoriteProperty" }, // likerefdata +favoriteProperty
+            { $unwind: "$favoriteTarget" },
             {
                 $facet: {
                     list: [
                         {$skip: (page-1)*limit},
                         {$limit: limit},
                         lookupFavorite,
-                        { $unwind: "$favoriteProperty.memberData" },
+                        { $unwind: "$favoriteTarget.memberData" },
                     ],
                     metaCounter: [{$count: "total"}],
                 }
@@ -73,8 +73,6 @@ export class LikeService {
         ])
         .exec();
 
-        const result: Properties = {list: [], metaCounter: data[0].metaCounter};
-        result.list = data[0].list.map((ele) => ele.favoriteProperty); 
-        return result;
+        return { list: data[0].list.map((ele) => ele.favoriteTarget), metaCounter: data[0].metaCounter };
     }
 }

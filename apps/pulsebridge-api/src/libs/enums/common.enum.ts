@@ -19,6 +19,16 @@ export enum Message {
     NOT_ALLOWED_REQUEST = "Not Allowed Request",
     PROVIDE_ALLOWED_FORMAT = "Please provide , jpg, jpeg or png images",
     SELF_SUBSCRIPTION_DENIED = "Self subscription is denied!",
+
+    CLINIC_ALREADY_EXISTS = "You already have a clinic!",
+    NO_CLINIC = "Create your clinic first!",
+    DOCTOR_ALREADY_EXISTS = "This member is already a doctor in a clinic!",
+    ONLY_DOCTOR_MEMBERS = "Only DOCTOR members or the clinic owner can be added as doctors!",
+    NOT_DOCTOR = "You are not registered as a doctor!",
+    DOCTOR_HAS_APPOINTMENTS = "Doctor has confirmed appointments, cancel them first!",
+    SLOT_TAKEN = "This time slot is already booked!",
+    PAST_APPOINTMENT = "Appointment time must be in the future!",
+    SELF_APPOINTMENT_DENIED = "You cannot book an appointment with yourself!",
 }
 
 export enum Direction {

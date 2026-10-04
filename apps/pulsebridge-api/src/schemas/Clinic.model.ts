@@ -1,0 +1,62 @@
+import { Schema } from 'mongoose';
+import { ClinicStatus } from '../libs/enums/clinic.enum';
+
+const ClinicSchema = new Schema(
+	{
+		clinicStatus: {
+			type: String,
+			enum: ClinicStatus,
+			default: ClinicStatus.ACTIVE,
+		},
+
+		clinicName: {
+			type: String,
+			required: true,
+		},
+
+		clinicAddress: {
+			type: String,
+			required: true,
+		},
+
+		clinicDesc: {
+			type: String,
+			required: true,
+		},
+
+		clinicImage: {
+			type: String,
+		},
+
+		clinicViews: {
+			type: Number,
+			default: 0,
+		},
+
+		clinicLikes: {
+			type: Number,
+			default: 0,
+		},
+
+		clinicComments: {
+			type: Number,
+			default: 0,
+		},
+
+		clinicRank: {
+			type: Number,
+			default: 0,
+		},
+
+		// CLINIC member who owns this clinic (1 member = 1 clinic)
+		memberId: {
+			type: Schema.Types.ObjectId,
+			required: true,
+			unique: true,
+			ref: 'Member',
+		},
+	},
+	{ timestamps: true, collection: 'clinics' },
+);
+
+export default ClinicSchema;

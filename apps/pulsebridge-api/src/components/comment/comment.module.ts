@@ -3,18 +3,18 @@ import { CommentResolver } from './comment.resolver';
 import { CommentService } from './comment.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from '../auth/auth.module';
-import { MemberModule } from '../member/member.module';
 import CommentSchema from '../../schemas/Comment.model';
-import { PropertyModule } from '../property/property.module';
-import { BoardArticleModule } from '../board-article/board-article.module';
+import { DoctorModule } from '../doctor/doctor.module';
+import { ClinicModule } from '../clinic/clinic.module';
+import { ArticleModule } from '../article/article.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{name: "Comment", schema: CommentSchema}]), 
+    MongooseModule.forFeature([{name: "Comment", schema: CommentSchema}]),
     AuthModule,
-    MemberModule,
-    PropertyModule,
-    BoardArticleModule
+    DoctorModule,
+    ClinicModule,
+    ArticleModule
   ],
   providers: [CommentResolver, CommentService]
 })

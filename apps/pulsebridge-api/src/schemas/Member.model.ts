@@ -1,23 +1,17 @@
 import { mongo, Schema } from 'mongoose';
-import { MemberAuthType, MemberStatus, MemberType } from '../libs/enums/member.enum';
+import { MemberStatus, MemberType } from '../libs/enums/member.enum';
 
 const MemberSchema = new Schema({
     memberType: {
         type: String,
         enum: MemberType,
-        default: MemberType.USER,
+        default: MemberType.PATIENT,
     },
 
     memberStatus: {
         type: String,
         enum: MemberStatus,
         default: MemberStatus.ACTIVE,
-    },
-
-    memberAuthType: {
-        type: String,
-        enum: MemberAuthType,
-        default: MemberAuthType.PHONE,
     },
 
     memberPhone: {
@@ -53,11 +47,6 @@ const MemberSchema = new Schema({
 
     memberDesc: {
         type: String,
-    },
-
-    memberProperties: {
-        type: Number,
-        default: 0,
     },
 
     memberArticles: {
@@ -96,16 +85,6 @@ const MemberSchema = new Schema({
     },
 
     memberRank: {
-        type: Number,
-        default: 0,
-    },
-
-    memberWarnings: {
-        type: Number,
-        default: 0,
-    },
-
-    memberBlocks: {
         type: Number,
         default: 0,
     },

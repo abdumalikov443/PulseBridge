@@ -2,9 +2,9 @@ import { BadRequestException, Injectable, InternalServerErrorException } from '@
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Comment, Comments } from '../../libs/dto/comment/comment';
-import { MemberService } from '../member/member.service';
-import { PropertyService } from '../property/property.service';
-import { BoardArticleService } from '../board-article/board-article.service';
+import { DoctorService } from '../doctor/doctor.service';
+import { ClinicService } from '../clinic/clinic.service';
+import { ArticleService } from '../article/article.service';
 import { CommentInput, CommentsInquiry } from '../../libs/dto/comment/comment.input';
 import { Direction, Message } from '../../libs/enums/common.enum';
 import { CommentGroup, CommentStatus } from '../../libs/enums/comment.enum';
@@ -16,9 +16,9 @@ import { lookupMember } from '../../libs/config';
 export class CommentService {
     constructor (
         @InjectModel("Comment") private readonly commentModel: Model<Comment>,
-        private memberService: MemberService,
-        private propertyService: PropertyService,
-        private boardArticleService: BoardArticleService,
+        private doctorService: DoctorService,
+        private clinicService: ClinicService,
+        private articleService: ArticleService,
     ) {}
 
     public async createComment(memberId: ObjectId, input: CommentInput): Promise<Comment> {
@@ -33,24 +33,24 @@ export class CommentService {
         }
 
         switch (input.commentGroup) {
-            case CommentGroup.PROPERTY:
-                await this.propertyService.propertyStatsEditor({
-                    _id: input.commentRefId, 
-                    targetKey: "propertyComments", 
+            case CommentGroup.DOCTOR:
+                await this.doctorService.doctorStatsEditor({
+                    _id: input.commentRefId,
+                    targetKey: "doctorComments",
                     modifier: 1
                 });
                 break;
-            case CommentGroup.ARTICLE: 
-                await this.boardArticleService.boardArticleStatsEditor({
-                    _id: input.commentRefId, 
-                    targetKey: "articleComments", 
+            case CommentGroup.CLINIC:
+                await this.clinicService.clinicStatsEditor({
+                    _id: input.commentRefId,
+                    targetKey: "clinicComments",
                     modifier: 1
                 });
                 break;
-            case CommentGroup.MEMBER:
-                await this.memberService.memberStatsEditor({
-                    _id: input.commentRefId, 
-                    targetKey: "memberComments", 
+            case CommentGroup.ARTICLE:
+                await this.articleService.articleStatsEditor({
+                    _id: input.commentRefId,
+                    targetKey: "articleComments",
                     modifier: 1
                 });
                 break;
@@ -60,7 +60,9 @@ export class CommentService {
     }
 
     public async updateComment(memberId: ObjectId, input: CommentUpdate): Promise<Comment> {
-        const { _id } = input;
+        const { _id, commentStatus } = input;
+        // only admin can block comments
+        if (commentStatus === CommentStatus.BLOCK) throw new BadRequestException(Message.NOT_ALLOWED_REQUEST);
 
         const result = await this.commentModel
             .findOneAndUpdate( 
@@ -98,8 +100,19 @@ export class CommentService {
         return result[0];
     }
 
+    /** ADMIN **/
+
+    public async updateCommentByAdmin(input: CommentUpdate): Promise<Comment> {
+        const result = await this.commentModel
+            .findOneAndUpdate({ _id: input._id }, input, { new: true })
+            .exec();
+
+        if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+        return result;
+    }
+
     public async removeCommentByAdmin(input: ObjectId): Promise<Comment> {
-        const result = await this.commentModel.findOneAndDelete(input);
+        const result = await this.commentModel.findOneAndDelete({ _id: input });
         if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
 
         return result;

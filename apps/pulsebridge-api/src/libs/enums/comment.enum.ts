@@ -2,6 +2,7 @@ import { registerEnumType } from '@nestjs/graphql';
 
 export enum CommentStatus {
 	ACTIVE = 'ACTIVE',
+	BLOCK = 'BLOCK',
 	DELETE = 'DELETE',
 }
 registerEnumType(CommentStatus, {
@@ -9,9 +10,9 @@ registerEnumType(CommentStatus, {
 });
 
 export enum CommentGroup {
-	MEMBER = 'MEMBER',
+	DOCTOR = 'DOCTOR',
+	CLINIC = 'CLINIC',
 	ARTICLE = 'ARTICLE',
-	PROPERTY = 'PROPERTY',
 }
 registerEnumType(CommentGroup, {
 	name: 'CommentGroup',

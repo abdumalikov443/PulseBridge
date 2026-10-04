@@ -9,6 +9,7 @@ import { AuthService } from '../auth/auth.service';
 import { MemberUpdate } from '../../libs/dto/member/member.update';
 import { StatisticModifier, T } from '../../libs/types/common';
 import { Follower, Following, MeFollowed } from '../../libs/dto/follow/follow';
+import { shapeIntoSearchRegex } from '../../libs/config';
 
 @Injectable()
 export class MemberService {
@@ -93,7 +94,7 @@ export class MemberService {
 
         if(memberStatus) match.memberStatus = memberStatus;
         if(memberType) match.memberType = memberType;
-        if (text) match.memberNick = { $regex: new RegExp(text, 'i') };
+        if (text) match.memberNick = { $regex: shapeIntoSearchRegex(text) };
         console.log("match: ", match);
 
         const result = await this.memberModel.aggregate([

@@ -10,7 +10,7 @@ import { ClinicStatus } from "../../libs/enums/clinic.enum";
 import { ViewGroup } from "../../libs/enums/view.enum";
 import { LikeGroup } from "../../libs/enums/like.enum";
 import { StatisticModifier, T } from "../../libs/types/common";
-import { lookupAuthMemberLiked, lookupMember } from "../../libs/config";
+import { lookupAuthMemberLiked, lookupMember, shapeIntoSearchRegex } from "../../libs/config";
 import { MemberService } from "../member/member.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
@@ -98,7 +98,7 @@ export class ClinicService {
         const match: T = { clinicStatus: ClinicStatus.ACTIVE };
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
 
-        if (text) match.clinicName = { $regex: new RegExp(text, 'i') };
+        if (text) match.clinicName = { $regex: shapeIntoSearchRegex(text) };
 
         const result = await this.clinicModel
             .aggregate([
@@ -171,7 +171,7 @@ export class ClinicService {
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
 
         if (clinicStatus) match.clinicStatus = clinicStatus;
-        if (text) match.clinicName = { $regex: new RegExp(text, 'i') };
+        if (text) match.clinicName = { $regex: shapeIntoSearchRegex(text) };
 
         const result = await this.clinicModel
             .aggregate([

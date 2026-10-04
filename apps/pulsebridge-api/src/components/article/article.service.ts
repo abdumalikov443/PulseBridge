@@ -10,7 +10,7 @@ import { StatisticModifier, T } from '../../libs/types/common';
 import { ArticleStatus } from '../../libs/enums/article.enum';
 import { ViewGroup } from '../../libs/enums/view.enum';
 import { ArticleUpdate } from '../../libs/dto/article/article.update';
-import { lookupAuthMemberLiked, lookupMember, shapeIntoMongoObjectId } from '../../libs/config';
+import { lookupAuthMemberLiked, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from '../../libs/config';
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { LikeGroup } from '../../libs/enums/like.enum';
 import { LikeService } from '../like/like.service';
@@ -95,7 +95,7 @@ export class ArticleService {
         const match: T = { articleStatus: ArticleStatus.ACTIVE };
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
 
-        if (text) match.articleTitle = { $regex: new RegExp(text, 'i') };
+        if (text) match.articleTitle = { $regex: shapeIntoSearchRegex(text) };
         if (input.search?.memberId) {
             match.memberId = shapeIntoMongoObjectId(input.search.memberId);
         }

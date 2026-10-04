@@ -13,8 +13,15 @@ export const availableArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 
 export const availableCommentSorts = ['createdAt', 'updatedAt'];
 
 
+// user text used inside $regex must be escaped (ReDoS / regex injection)
+export const shapeIntoSearchRegex = (text: string) => {
+	return new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+};
+
+
 /** IMAGE CONFIGURATION **/
 export const validMimeTypes = ['image/png', 'image/jpg', 'image/jpeg'];
+export const availableUploadTargets = ['member', 'clinic', 'article'];
 export const getSerialForImage = (filename: string) => {
 	const ext = path.parse(filename).ext;
 	return uuidv4() + ext;

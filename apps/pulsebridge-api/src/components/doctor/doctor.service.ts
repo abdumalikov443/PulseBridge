@@ -13,7 +13,7 @@ import { AppointmentStatus } from "../../libs/enums/appointment.enum";
 import { ViewGroup } from "../../libs/enums/view.enum";
 import { LikeGroup } from "../../libs/enums/like.enum";
 import { StatisticModifier, T } from "../../libs/types/common";
-import { lookupAuthMemberLiked, lookupClinic, lookupMember, shapeIntoMongoObjectId } from "../../libs/config";
+import { lookupAuthMemberLiked, lookupClinic, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from "../../libs/config";
 import { MemberService } from "../member/member.service";
 import { ClinicService } from "../clinic/clinic.service";
 import { ViewService } from "../view/view.service";
@@ -106,7 +106,7 @@ export class DoctorService {
 
         const textMatch: T = {};
         if (text) {
-            const regex = new RegExp(text, 'i');
+            const regex = shapeIntoSearchRegex(text);
             textMatch['$or'] = [{ 'memberData.memberNick': regex }, { 'memberData.memberFullName': regex }];
         }
 

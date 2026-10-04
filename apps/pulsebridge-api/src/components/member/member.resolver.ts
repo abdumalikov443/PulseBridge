@@ -10,10 +10,10 @@ import { MemberType } from '../../libs/enums/member.enum';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { MemberUpdate } from '../../libs/dto/member/member.update';
-import { getSerialForImage, shapeIntoMongoObjectId, validMimeTypes } from '../../libs/config';
+import { availableUploadTargets, getSerialForImage, shapeIntoMongoObjectId, validMimeTypes } from '../../libs/config';
 import { WithoutGuard } from '../auth/guards/without.guard';
 import { GraphQLUpload, FileUpload } from 'graphql-upload';
-import { createWriteStream } from 'fs';
+import { createWriteStream, mkdirSync } from 'fs';
 import { Message } from '../../libs/enums/common.enum';
 
 @Resolver()
@@ -23,7 +23,6 @@ export class MemberResolver {
     @Mutation(() => Member)
     public async signup(@Args("input") input: MemberInput): Promise<Member> {
         console.log("Mutation: signup");
-        console.log("input: ", input);
         return await this.memberService.signup(input);
     }
 
@@ -104,6 +103,7 @@ export class MemberResolver {
         console.log('Mutation: imageUploader');
 
         if (!filename) throw new Error(Message.UPLOAD_FAILED);
+    this.checkUploadTarget(target);
     const validMime = validMimeTypes.includes(mimetype);
     if (!validMime) throw new Error(Message.PROVIDE_ALLOWED_FORMAT);
 
@@ -130,6 +130,7 @@ export class MemberResolver {
     @Args('target') target: String,
     ): Promise<string[]> {
         console.log('Mutation: imagesUploader');
+        this.checkUploadTarget(target);
 
         const uploadedImages = [];
         const promisedList = files.map(async (img: Promise<FileUpload>, index: number): Promise<Promise<void>> => {
@@ -159,5 +160,11 @@ export class MemberResolver {
 
         await Promise.all(promisedList);
         return uploadedImages;
+    }
+
+    // only known folders: blocks path traversal like "../../etc"
+    private checkUploadTarget(target: String): void {
+        if (!availableUploadTargets.includes(String(target))) throw new Error(Message.BAD_REQUEST);
+        mkdirSync(`uploads/${target}`, { recursive: true });
     }
 }

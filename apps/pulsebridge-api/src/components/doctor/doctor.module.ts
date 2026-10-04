@@ -9,6 +9,7 @@ import { MemberModule } from '../member/member.module';
 import { ClinicModule } from '../clinic/clinic.module';
 import { ViewModule } from '../view/view.module';
 import { LikeModule } from '../like/like.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
     imports: [
@@ -18,7 +19,8 @@ import { LikeModule } from '../like/like.module';
         MemberModule,
         ClinicModule,
         ViewModule,
-        LikeModule
+        LikeModule,
+        NotificationModule
     ],
     providers: [DoctorResolver, DoctorService],
     exports: [DoctorService]

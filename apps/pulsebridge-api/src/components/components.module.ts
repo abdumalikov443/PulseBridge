@@ -8,6 +8,8 @@ import { LikeModule } from './like/like.module';
 import { ViewModule } from './view/view.module';
 import { FollowModule } from './follow/follow.module';
 import { ArticleModule } from './article/article.module';
+import { AppointmentModule } from './appointment/appointment.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { ArticleModule } from './article/article.module';
     AuthModule,
     ClinicModule,
     DoctorModule,
+    AppointmentModule,
+    NotificationModule,
     ArticleModule,
     LikeModule,
     ViewModule,

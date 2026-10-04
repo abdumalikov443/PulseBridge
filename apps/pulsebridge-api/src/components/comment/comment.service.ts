@@ -11,6 +11,8 @@ import { CommentGroup, CommentStatus } from '../../libs/enums/comment.enum';
 import { CommentUpdate } from '../../libs/dto/comment/comment.update';
 import { T } from '../../libs/types/common';
 import { lookupMember } from '../../libs/config';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationGroup, NotificationType } from '../../libs/enums/notification.enum';
 
 @Injectable()
 export class CommentService {
@@ -19,6 +21,7 @@ export class CommentService {
         private doctorService: DoctorService,
         private clinicService: ClinicService,
         private articleService: ArticleService,
+        private notificationService: NotificationService,
     ) {}
 
     public async createComment(memberId: ObjectId, input: CommentInput): Promise<Comment> {
@@ -32,23 +35,25 @@ export class CommentService {
             throw new BadRequestException(Message.CREATE_FAILED);
         }
 
+        // owner of the commented target receives the notification
+        let target: { memberId: ObjectId } | null = null;
         switch (input.commentGroup) {
             case CommentGroup.DOCTOR:
-                await this.doctorService.doctorStatsEditor({
+                target = await this.doctorService.doctorStatsEditor({
                     _id: input.commentRefId,
                     targetKey: "doctorComments",
                     modifier: 1
                 });
                 break;
             case CommentGroup.CLINIC:
-                await this.clinicService.clinicStatsEditor({
+                target = await this.clinicService.clinicStatsEditor({
                     _id: input.commentRefId,
                     targetKey: "clinicComments",
                     modifier: 1
                 });
                 break;
             case CommentGroup.ARTICLE:
-                await this.articleService.articleStatsEditor({
+                target = await this.articleService.articleStatsEditor({
                     _id: input.commentRefId,
                     targetKey: "articleComments",
                     modifier: 1
@@ -56,6 +61,18 @@ export class CommentService {
                 break;
         }
         if (!result) throw new InternalServerErrorException(Message.CREATE_FAILED);
+
+        if (target) {
+            await this.notificationService.createNotification({
+                notificationType: NotificationType.COMMENT,
+                notificationGroup: input.commentGroup as unknown as NotificationGroup,
+                notificationTitle: "New comment",
+                notificationDesc: input.commentContent,
+                authorId: memberId,
+                receiverId: target.memberId,
+                articleId: input.commentGroup === CommentGroup.ARTICLE ? input.commentRefId : undefined,
+            });
+        }
         return result;
     }
 

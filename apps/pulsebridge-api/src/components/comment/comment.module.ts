@@ -7,6 +7,7 @@ import CommentSchema from '../../schemas/Comment.model';
 import { DoctorModule } from '../doctor/doctor.module';
 import { ClinicModule } from '../clinic/clinic.module';
 import { ArticleModule } from '../article/article.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { ArticleModule } from '../article/article.module';
     AuthModule,
     DoctorModule,
     ClinicModule,
-    ArticleModule
+    ArticleModule,
+    NotificationModule
   ],
   providers: [CommentResolver, CommentService]
 })

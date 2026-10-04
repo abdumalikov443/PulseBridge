@@ -18,6 +18,8 @@ import { MemberService } from "../member/member.service";
 import { ClinicService } from "../clinic/clinic.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
+import { NotificationService } from "../notification/notification.service";
+import { NotificationGroup, NotificationType } from "../../libs/enums/notification.enum";
 
 @Injectable()
 export class DoctorService {
@@ -27,7 +29,8 @@ export class DoctorService {
         private memberService: MemberService,
         private clinicService: ClinicService,
         private viewService: ViewService,
-        private likeService: LikeService
+        private likeService: LikeService,
+        private notificationService: NotificationService
     ) {}
 
     // clinic owner adds a DOCTOR member (or himself) to his clinic
@@ -86,6 +89,11 @@ export class DoctorService {
         const result = await this.doctorModel.findById(doctorId).exec() as unknown as Doctor;
         if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
         return result;
+    }
+
+    public async isDoctorMember(doctorId: ObjectId, memberId: ObjectId): Promise<boolean> {
+        const exist = await this.doctorModel.exists({ _id: doctorId, memberId: memberId }).exec();
+        return !!exist;
     }
 
     public async getDoctors(memberId: ObjectId, input: DoctorsInquiry): Promise<Doctors> {
@@ -166,7 +174,7 @@ export class DoctorService {
     }
 
     public async likeTargetDoctor(memberId: ObjectId, likeRefId: ObjectId): Promise<Doctor> {
-        await this.getDoctorById(likeRefId);
+        const target = await this.getDoctorById(likeRefId);
 
         const input: LikeInput = {
             memberId: memberId,
@@ -182,6 +190,16 @@ export class DoctorService {
         });
 
         if (!result) throw new InternalServerErrorException(Message.SOMETHING_WENT_WRONG);
+        if (modifier > 0) {
+            await this.notificationService.createNotification({
+                notificationType: NotificationType.LIKE,
+                notificationGroup: NotificationGroup.DOCTOR,
+                notificationTitle: "New like",
+                notificationDesc: "Your doctor profile got a new like",
+                authorId: memberId,
+                receiverId: target.memberId,
+            });
+        }
         return result;
     }
 

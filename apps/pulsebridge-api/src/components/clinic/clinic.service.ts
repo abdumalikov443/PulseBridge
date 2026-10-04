@@ -15,6 +15,8 @@ import { MemberService } from "../member/member.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
 import { LikeInput } from "../../libs/dto/like/like.input";
+import { NotificationService } from "../notification/notification.service";
+import { NotificationGroup, NotificationType } from "../../libs/enums/notification.enum";
 
 @Injectable()
 export class ClinicService {
@@ -22,7 +24,8 @@ export class ClinicService {
         @InjectModel("Clinic") private readonly clinicModel: Model<Clinic>,
         private memberService: MemberService,
         private viewService: ViewService,
-        private likeService: LikeService
+        private likeService: LikeService,
+        private notificationService: NotificationService
     ) {}
 
     public async createClinic(input: ClinicInput): Promise<Clinic> {
@@ -147,6 +150,16 @@ export class ClinicService {
         });
 
         if (!result) throw new InternalServerErrorException(Message.SOMETHING_WENT_WRONG);
+        if (modifier > 0) {
+            await this.notificationService.createNotification({
+                notificationType: NotificationType.LIKE,
+                notificationGroup: NotificationGroup.CLINIC,
+                notificationTitle: "New like",
+                notificationDesc: `Your clinic ${target.clinicName} got a new like`,
+                authorId: memberId,
+                receiverId: target.memberId,
+            });
+        }
         return result;
     }
 

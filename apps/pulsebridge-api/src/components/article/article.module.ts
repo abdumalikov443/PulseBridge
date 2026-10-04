@@ -7,6 +7,7 @@ import { ViewModule } from '../view/view.module';
 import ArticleSchema from '../../schemas/Article.model';
 import { MemberModule } from '../member/member.module';
 import { LikeModule } from '../like/like.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { LikeModule } from '../like/like.module';
     AuthModule,
     ViewModule,
     MemberModule,
-    LikeModule
+    LikeModule,
+    NotificationModule
   ],
   providers: [ArticleResolver, ArticleService],
   exports: [ArticleService]

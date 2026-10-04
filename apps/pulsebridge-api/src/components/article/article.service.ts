@@ -14,6 +14,8 @@ import { lookupAuthMemberLiked, lookupMember, shapeIntoMongoObjectId } from '../
 import { LikeInput } from '../../libs/dto/like/like.input';
 import { LikeGroup } from '../../libs/enums/like.enum';
 import { LikeService } from '../like/like.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationGroup, NotificationType } from '../../libs/enums/notification.enum';
 
 @Injectable()
 export class ArticleService {
@@ -21,7 +23,8 @@ export class ArticleService {
         @InjectModel("Article") private readonly articleModel: Model<Article>,
         private memberService: MemberService,
         private viewService: ViewService,
-        private likeService: LikeService
+        private likeService: LikeService,
+        private notificationService: NotificationService
     ) {}
 
     public async createArticle(memberId: ObjectId, input: ArticleInput): Promise<Article> {
@@ -140,6 +143,17 @@ export class ArticleService {
         });
 
         if (!result) throw new InternalServerErrorException(Message.SOMETHING_WENT_WRONG);
+        if (modifier > 0) {
+            await this.notificationService.createNotification({
+                notificationType: NotificationType.LIKE,
+                notificationGroup: NotificationGroup.ARTICLE,
+                notificationTitle: "New like",
+                notificationDesc: `Your article ${target.articleTitle} got a new like`,
+                authorId: memberId,
+                receiverId: target.memberId,
+                articleId: likeRefId,
+            });
+        }
         return result;
     }
 

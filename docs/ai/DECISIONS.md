@@ -10,15 +10,20 @@ Format: lightweight ADR. Status values: **Accepted** (implemented or binding), *
 | D-04 | Keep `.env` keys; database name rename is the owner's call | Accepted (keys) / Open (DB name) |
 | D-05 | Use `git mv` for folder renames | Accepted |
 | D-06 | Lowercase `pulsebridge-*` for package and app identifiers, `PulseBridge` for classes and text | Accepted |
-| D-07 | `Property` maps to `Clinic` (vs `DoctorService`) | Open |
-| D-08 | Fix existing bugs before domain changes, as a separate change | Proposed |
-| D-09 | Hard GraphQL renames with coordinated frontend release (no alias layer) | Proposed |
+| D-07 | `Property` is replaced by `Clinic`, plus a separate `Doctor` collection | Accepted |
+| D-08 | Fix existing bugs before domain changes, as a separate change | Superseded (bugs fixed during the domain migration, security fixes in their own commit) |
+| D-09 | Hard GraphQL renames with coordinated frontend release (no alias layer) | Accepted |
 | D-10 | Extract shared `libs/common` for api + batch | Proposed |
 | D-11 | Minimal JWT payload | Proposed |
 | D-12 | Healthcare compliance baseline (audit, logging, verification) | Proposed |
 | D-13 | Socket chat → per-appointment rooms, stored messages | Proposed |
 | D-14 | Don't fix the broken ESLint setup inside the rename change | Accepted |
 | D-15 | Add a `typecheck` npm script | Accepted |
+| D-16 | Roles PATIENT/DOCTOR/CLINIC/ADMIN with ownership-based permissions | Accepted |
+| D-17 | Like/view/comment counters and rank live on `doctors` and `clinics` | Accepted |
+| D-18 | Existing Nestar property data is deleted by the migration script | Accepted |
+| D-19 | Enum values kept: `CommentStatus.DELETE` (+ `BLOCK`), `NotificationStatus.WAIT` | Accepted |
+| D-20 | JWT secret loaded through `ConfigService` (`registerAsync`) | Accepted |
 
 ---
 
@@ -56,7 +61,7 @@ Format: lightweight ADR. Status values: **Accepted** (implemented or binding), *
 - **Risks:** The repo folder itself is `pulseBridge` (camelCase) and is outside this convention.
 
 ### D-07: `Property` → `Clinic` or `DoctorService`
-- **Status:** Open. `Clinic` is used as the working name in the docs.
+- **Status:** Accepted (2026-10-04). The owner's ERD has both `clinics` and `doctors`: a clinic is owned by one `CLINIC` member (`clinics.memberId`, unique), a doctor record links a member to one clinic (`doctors.memberId` unique, `doctors.clinicId`). Property is removed. The analysis below is kept for history.
 - **Option A, `Clinic`:** An organisation-level listing with location, specialties and fee. Fits the existing location, image and like/view model. Doctors belong to clinics.
 - **Option B, `DoctorService`:** A per-doctor offering (e.g. "Dermatology consultation, 30 min, ₩30,000"). Closer to how the current `Property` is owned by one `AGENT`.
 - **Trade-off:** In the current data model `Property.memberId` is the agent who owns it. With Clinic, a doctor-to-clinic relationship is needed (possibly many-to-many). With DoctorService, the ownership model stays as it is.
@@ -95,3 +100,25 @@ Format: lightweight ADR. Status values: **Accepted** (implemented or binding), *
 ### D-15: `typecheck` script
 - **Decision:** Add `npm run typecheck`, which runs `tsc --noEmit` against both `tsconfig.app.json` files.
 - **Why:** It's a quick check that doesn't emit files and doesn't depend on the broken lint setup.
+
+### D-16: Roles and ownership-based permissions
+- **Decision:** `MemberType` is `PATIENT | DOCTOR | CLINIC | ADMIN` (replaces `USER | AGENT | ADMIN`; supersedes the old AGENTS.md rule "keep USER"). `memberType` only picks the account kind. What a member may do is checked against ownership: clinic owner = `clinics.memberId`, doctor = a `doctors` record with `memberId`.
+- **Flow:** a CLINIC member creates one clinic, then adds DOCTOR members (or himself) as doctors. A doctor cannot attach himself to a clinic. Patients book; doctor or clinic owner completes/cancels; patient cancels.
+- **Why:** One person can be both clinic owner and doctor without a new role or table.
+- **Later:** clinic managers can be added as `clinics.clinicManagers: [memberId]` with an `owner || manager` check. Doctor approval can be `doctors.doctorStatus`.
+
+### D-17: Counters on doctors and clinics
+- **Decision:** `doctorLikes/Views/Comments/Rank` and `clinicLikes/Views/Comments/Rank` are added on top of the ERD.
+- **Why:** Sorting lists and the batch ranking need them, and it keeps the existing `*StatsEditor` pattern.
+
+### D-18: Nestar data migration
+- **Decision:** `scripts/migrate-nestar-to-pulsebridge.js` maps USER→PATIENT, AGENT→DOCTOR, renames `boardArticles`→`articles`, and deletes `properties` plus all PROPERTY/MEMBER likes, views and comments. Dry run by default; `--apply` changes data.
+- **Risk:** Destructive. Take a `mongodump` first. Former agents become DOCTOR members without a `doctors` record until a clinic adds them.
+
+### D-19: Enum values kept by owner request
+- `CommentStatus` = `ACTIVE | BLOCK | DELETE` (BLOCK is admin only). `NotificationStatus` = `WAIT | READ`. `NotificationGroup` additionally has `MEMBER`, used for FOLLOW notifications; like/view/comment groups do not have it.
+
+### D-20: JWT secret through ConfigService
+- **Facts:** `JwtModule.register({ secret: process.env.SECRET_TOKEN })` ran when `auth.module.ts` was imported, before `ConfigModule.forRoot()` loaded `.env`, so tokens were signed with the string `"undefined"` and could be forged.
+- **Decision:** `JwtModule.registerAsync` with `ConfigService.getOrThrow('SECRET_TOKEN')`.
+- **Impact:** All tokens issued before the change are invalid; users log in again.

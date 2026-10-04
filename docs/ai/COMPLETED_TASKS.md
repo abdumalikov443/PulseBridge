@@ -57,3 +57,35 @@ GraphQL schema, Mongo models and collections, `.env` keys, cron job names, all d
 - `dist/apps/nestar-api` and `dist/apps/nestar-batch` are still on disk (untracked; removed by the next `deleteOutDir` build).
 - The `.env` Mongo URIs still use the `Nestar` database name (D-04).
 - `docs/` is not committed yet.
+
+---
+
+## 5. Session 2026-10-04 (2): healthcare domain migration
+
+Source: the owner's ERD (members, clinics, doctors, appointments, articles, comments, likes, views, follows, notifications) and enum list. Decisions D-07, D-09, D-16 … D-20.
+
+| # | Task | Commit |
+|---|---|---|
+| 1 | Enums: roles, specialty, clinic/appointment/article/comment/notification statuses, DOCTOR/CLINIC/ARTICLE groups | `03b553d` |
+| 2 | Schemas: Clinic (replaces Property), Doctor, Appointment, Article (replaces BoardArticle), Member/Notification/Like/Comment updates | `03b553d` |
+| 3 | Member: ADMIN signup blocked, own role/status change blocked, `getAgents`/`likeTargetMember` removed | `03b553d` |
+| 4 | Clinic, Doctor and Article modules; generic favorites/visited in Like/View services; Comment counters per group; admin comment BLOCK | `03b553d` |
+| 5 | Batch: top doctors / top clinics; fixed missing `await` and `findOneAndUpdate(_id)` | `03b553d` |
+| 6 | Appointment module with status policy, double-booking index, role queries; Notification module wired to like/comment/appointment | `10a6d22` |
+| 7 | FOLLOW notifications (`NotificationGroup.MEMBER`); data migration script `npm run migrate:pulsebridge` | `e15cc6d` |
+| 8 | Security: JWT secret load order, upload target whitelist, regex escaping, password log removed | `eea7680` |
+| 9 | Docs: AGENTS.md rules, DECISIONS D-07/D-16…D-20, BACKEND_MIGRATION §9, NEXT_STEPS | docs commit |
+
+Existing bugs fixed along the way: Like schema validated with `ViewGroup`; article like check used `MEMBER`; article text search used a non-existent `text` field; `updateArticle` could not set DELETE; `removeCommentByAdmin` filter.
+
+### 5.1 Validation
+
+| Check | Command | Status |
+|---|---|---|
+| Typecheck api / batch | `npx tsc -p apps/pulsebridge-*/tsconfig.app.json --noEmit` | ✅ exit 0 |
+| Build api / batch | `npm run build`, `npx nest build pulsebridge-batch` | ✅ exit 0 |
+| Unit tests | `npx jest` | ✅ 4/4 (`appointment.policy.spec.ts`) |
+| DI + GraphQL schema | Testing module with ComponentsModule + Apollo, all Mongoose models mocked | ✅ app init, 568-line schema, no duplicate type names |
+| Against a real MongoDB | — | ⚠️ Not run: no request was executed against a database |
+| Migration script | `node --check` only | ⚠️ Not run against any database (owner runs dry run first) |
+| Lint | — | ❌ Still broken (D-14) |

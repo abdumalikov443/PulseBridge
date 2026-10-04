@@ -1,7 +1,7 @@
 # Backend Migration: Nestar → PulseBridge
 
-> Status as of 2026-10-04 · branch `modification` · last migration commit `631ec51`
-> Phase completed: **Phase 0 (identifier rename)**. Domain logic is still real estate.
+> Status as of 2026-10-04 · branch `modification` · last migration commit `eea7680`
+> Completed: **Phase 0 (rename)**, **Phases 3–5 (healthcare domain)**, security part of Phase 1, batch part of Phase 7. See §9 for the current domain.
 
 ## 1. Original project: Nestar
 
@@ -25,9 +25,9 @@ PulseBridge is a healthcare platform: patients find doctors and clinics, book ap
 | Aspect | Target |
 |---|---|
 | Apps | `pulsebridge-api`, `pulsebridge-batch` (**done**) |
-| Roles | `PATIENT` / `DOCTOR` / `ADMIN` (planned; currently `USER` / `AGENT` / `ADMIN`) |
-| Core listing entity | `Clinic` (working name, see DECISIONS D-07; currently `Property`) |
-| New entities | `Appointment`, `DoctorSchedule`, `Review` (planned) |
+| Roles | `PATIENT` / `DOCTOR` / `CLINIC` / `ADMIN` (**done**, D-16) |
+| Core listing entities | `Clinic` and `Doctor` (**done**, D-07) |
+| New entities | `Appointment`, `Notification` (**done**); `DoctorSchedule`, `Review` (not planned yet) |
 | Realtime | Authenticated per-appointment consultation rooms with stored messages (planned) |
 | Compliance | Smaller JWT payload, audit log, less sensitive data in logs (planned) |
 
@@ -42,13 +42,13 @@ Phase plan:
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Rename project/app identifiers Nestar → PulseBridge | ✅ Done (`631ec51`) |
-| 1 | Fix existing bugs (see §8) without contract changes | ⏳ Next |
+| 1 | Fix existing bugs (see §8) | ✅ All 10 fixed except #10 (`checkAuthRoles` guard) (`03b553d`, `eea7680`) |
 | 2 | Extract shared `libs/common` (schemas, enums, DTOs) for api + batch | ⏳ |
-| 3 | Member roles → PATIENT/DOCTOR/ADMIN, doctor profile, smaller JWT payload | ⏳ |
-| 4 | Property → Clinic (schema, DTOs, resolvers, enums, sorts) | ⏳ |
-| 5 | Appointment + DoctorSchedule + Notification wiring | ⏳ |
+| 3 | Member roles → PATIENT/DOCTOR/CLINIC/ADMIN, doctor profile | ✅ `03b553d` (smaller JWT payload still open, D-11) |
+| 4 | Property → Clinic + Doctor (schema, DTOs, resolvers, enums, sorts) | ✅ `03b553d` |
+| 5 | Appointment + Notification wiring | ✅ `10a6d22`, `e15cc6d` (DoctorSchedule not started) |
 | 6 | Socket → per-appointment consultation rooms | ⏳ |
-| 7 | Batch → top doctors, reminders, no-show handling | ⏳ |
+| 7 | Batch → top doctors / top clinics | ✅ `03b553d` (reminders, no-shows open) |
 
 ## 4. Naming changes
 
@@ -190,3 +190,58 @@ Hard-coded collection names in `$lookup` must change together with any collectio
   8. Unescaped user `RegExp` in search (ReDoS).
   9. `JwtModule.register` reads `SECRET_TOKEN` at import time, possibly before `ConfigModule` loads `.env` (needs checking).
   10. `@Roles` on `checkAuthRoles` has no effect because it's paired with `AuthGuard`.
+- **Status of the bugs above (2026-10-04):** 1, 2, 5, 6, 7, 8 and 9 are fixed. 3 and 4 disappeared with Property. 9 was a real issue: tokens were signed with `"undefined"` (D-20). 10 is still open.
+
+## 9. Healthcare domain (Phases 3–5, current state)
+
+Sections 4–7 above describe the Phase 0 baseline. This section is the current contract.
+
+### 9.1 Enums
+
+| Enum | Values |
+|---|---|
+| `MemberType` | `PATIENT` (default), `DOCTOR`, `CLINIC`, `ADMIN` (not allowed at signup) |
+| `MemberStatus` | `ACTIVE`, `BLOCK`, `DELETE` |
+| `DoctorSpecialty` | `CARDIOLOGY`, `DERMATOLOGY`, `PEDIATRICS`, `NEUROLOGY`, `DENTISTRY`, `GENERAL` |
+| `ClinicStatus` | `ACTIVE`, `PAUSE`, `DELETE` |
+| `AppointmentStatus` | `CONFIRMED` (default), `COMPLETED`, `CANCELLED` |
+| `ArticleStatus` | `ACTIVE`, `DELETE` |
+| `CommentStatus` | `ACTIVE`, `BLOCK` (admin only), `DELETE` |
+| `CommentGroup` / `LikeGroup` / `ViewGroup` | `DOCTOR`, `CLINIC`, `ARTICLE` |
+| `NotificationType` | `LIKE`, `COMMENT`, `FOLLOW`, `APPOINTMENT` |
+| `NotificationStatus` | `WAIT`, `READ` |
+| `NotificationGroup` | `MEMBER`, `DOCTOR`, `CLINIC`, `ARTICLE` |
+
+Removed: `MemberAuthType`, `Property*`, `BoardArticleCategory`.
+
+### 9.2 Collections
+
+| Collection | Fields (besides `_id`, timestamps) |
+|---|---|
+| `members` | as the ERD; removed `memberProperties`, `memberAuthType`, `memberWarnings`, `memberBlocks` |
+| `clinics` | `clinicStatus`, `clinicName`, `clinicAddress`, `clinicDesc`, `clinicImage?`, `memberId` (owner, unique), `clinicLikes/Views/Comments/Rank` |
+| `doctors` | `memberId` (unique), `clinicId`, `specialty`, `experience`, `doctorLikes/Views/Comments/Rank` |
+| `appointments` | `appointmentDate` (start of day), `appointmentTime` (`HH:mm`), `appointmentStatus`, `appointmentReason?`, `memberId` (patient), `doctorId`, `clinicId` (copied from the doctor). Partial unique index `{doctorId, appointmentDate, appointmentTime}` for CONFIRMED |
+| `articles` | renamed from `boardArticles`; `articleCategory` removed |
+| `notifications` | registered; `propertyId` removed, `appointmentId` added |
+| `comments`, `likes`, `views`, `follows` | unchanged shape, new group values |
+| `properties` | removed (deleted by the migration script, D-18) |
+
+### 9.3 GraphQL operations
+
+| Module | Queries | Mutations |
+|---|---|---|
+| Member | `checkAuth`, `checkAuthRoles`, `getMember`, `getAllMembersByAdmin` | `signup`, `login`, `updateMember`, `updateMemberByAdmin`, `imageUploader`, `imagesUploader` (targets `member`, `clinic`, `article`) |
+| Clinic | `getClinic`, `getClinics`, `getMyClinic` (CLINIC), `getFavoriteClinics`, `getVisitedClinics`, `getAllClinicsByAdmin` | `createClinic` (CLINIC), `updateClinic` (CLINIC owner), `likeTargetClinic`, `updateClinicByAdmin`, `removeClinicByAdmin` |
+| Doctor | `getDoctor`, `getDoctors` (clinicId, specialtyList, text), `getMyDoctorProfile`, `getFavoriteDoctors`, `getVisitedDoctors` | `createDoctor` (CLINIC owner), `updateDoctor` (doctor or clinic owner), `removeDoctor` (CLINIC owner), `likeTargetDoctor`, `removeDoctorByAdmin` |
+| Appointment | `getMyAppointments`, `getDoctorAppointments`, `getClinicAppointments` (CLINIC), `getAllAppointmentsByAdmin` | `createAppointment` (PATIENT), `updateAppointment` |
+| Article | `getArticle`, `getArticles`, `getAllArticlesByAdmin` | `createArticle`, `updateArticle`, `likeTargetArticle`, `updateArticleByAdmin`, `removeArticleByAdmin` |
+| Comment | `getComments` | `createComment`, `updateComment`, `updateCommentByAdmin`, `removeCommentByAdmin` |
+| Notification | `getNotifications` | `readNotification`, `readAllNotifications` |
+| Follow | `getMemberFollowings`, `getMemberFollowers` | `subscribe`, `unsubscribe` |
+
+Removed operations: `getAgents`, `likeTargetMember`, all `*Property*`, all `*BoardArticle*`, `getFavorites`, `getVisited`.
+
+### 9.4 Batch
+
+`BATCH_ROLLBACK` resets `doctorRank`/`clinicRank`; `BATCH_TOP_DOCTORS` and `BATCH_TOP_CLINICS` set rank = likes×2 + comments×2 + views.

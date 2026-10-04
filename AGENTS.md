@@ -1,6 +1,6 @@
 # PulseBridge Backend Agent Instruction
 
-PulseBridge is a NestJS GraphQL monorepo migrated from Real estate platform into a petshop platform
+PulseBridge is a NestJS GraphQL monorepo migrated from a real-estate platform (Nestar) into a healthcare platform: patients find clinics and doctors, book appointments and read health articles.
 
 ## Read First
 
@@ -18,13 +18,19 @@ Use those files as the source of truth for AI Agent related migration history, a
 - Backend apps are `pulsebridge-api` and `pulsebridge-batch`.
 - Keep the existing NestJS resolver/service/module pattern based on MVC and DI.
 - Keep DTOs, enums, schemas under `apps/pulsebridge-api/src/libs`.
-- Keep shared modules reusable: auth, member, like, view, comment, follow, article, socket.
+- Keep shared modules reusable: auth, member, like, view, comment, follow, article, notification, socket.
+- Domain modules: clinic, doctor, appointment.
 
 ## Domain Rules
 
 - Do not reintroduce property or real-estate fields.
-- Keep `MemberType.USER`, `MemberType.ADMIN` unchanged.
-- PulseBridge ownership continues to use `MemberType.ADMIN` unless a later migration explicitly changes it.
+- `MemberType` is `PATIENT | DOCTOR | CLINIC | ADMIN`. `ADMIN` cannot be chosen at signup, and members cannot change their own type or status.
+- Permissions come from ownership, not only from `memberType`:
+  - clinic owner = `clinics.memberId` (1 member = 1 clinic)
+  - doctor = a `doctors` record with `memberId` (1 member = 1 clinic); clinic owners add doctors, and may add themselves
+  - appointment: the patient cancels; the doctor or clinic owner completes or cancels (`appointment.policy.ts`)
+- Like/View/Comment groups are `DOCTOR | CLINIC | ARTICLE`. `*RefId` points to `doctors._id`, `clinics._id` or `articles._id`.
+- Escape user text before `$regex` with `shapeIntoSearchRegex` (`libs/config.ts`).
 
 ## Workflow
 
@@ -41,7 +47,9 @@ Use these checks for backend work:
 ```bash
 npx tsc -p apps/pulsebridge-api/tsconfig.app.json --noEmit
 npx tsc -p apps/pulsebridge-batch/tsconfig.app.json --noEmit
-npx run build
+npm run build
+npx nest build pulsebridge-batch
+npx jest
 ```
 
 `npm run lint` runs ESLint with `--fix`, so use it only when file rewriting is acceptable!

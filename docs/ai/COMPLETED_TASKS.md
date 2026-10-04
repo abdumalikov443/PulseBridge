@@ -86,6 +86,6 @@ Existing bugs fixed along the way: Like schema validated with `ViewGroup`; artic
 | Build api / batch | `npm run build`, `npx nest build pulsebridge-batch` | ✅ exit 0 |
 | Unit tests | `npx jest` | ✅ 4/4 (`appointment.policy.spec.ts`) |
 | DI + GraphQL schema | Testing module with ComponentsModule + Apollo, all Mongoose models mocked | ✅ app init, 568-line schema, no duplicate type names |
-| Against a real MongoDB | — | ⚠️ Not run: no request was executed against a database |
-| Migration script | `node --check` only | ⚠️ Not run against any database (owner runs dry run first) |
+| e2e on in-memory MongoDB 6.0 | Full `AppModule` + batch + migration script over GraphQL (scratch script, not committed) | ✅ 90/90: roles, clinic/doctor ownership, booking (incl. concurrent double booking), status rules, comments/BLOCK, articles, notifications, favorites/visited, admin, upload path traversal, batch ranks, migration dry run/apply/rerun |
+| Against the real (Atlas) database | — | ⚠️ Not run on purpose; owner runs the migration dry run first |
 | Lint | — | ❌ Still broken (D-14) |

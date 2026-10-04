@@ -19,6 +19,7 @@ registerEnumType(NotificationStatus, {
 });
 
 export enum NotificationGroup {
+	MEMBER = 'MEMBER',
 	DOCTOR = 'DOCTOR',
 	CLINIC = 'CLINIC',
 	ARTICLE = 'ARTICLE',

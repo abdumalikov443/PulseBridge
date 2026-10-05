@@ -6,7 +6,7 @@ import { pipeline } from "stream";
 
 
 export const availableMemberSorts = ["createdAt", "updatedAt", "memberLikes", "memberViews"];
-export const availableClinicSorts = ["createdAt", "updatedAt", "clinicLikes", "clinicViews", "clinicRank"];
+export const availableClinicSorts = ["createdAt", "updatedAt", "clinicLikes", "clinicViews", "clinicRank", "clinicDoctors"];
 export const availableDoctorSorts = ["createdAt", "updatedAt", "doctorLikes", "doctorViews", "doctorRank", "experience"];
 export const availableAppointmentSorts = ["createdAt", "updatedAt", "appointmentDate"];
 export const availableArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 'articleViews'];

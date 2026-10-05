@@ -38,6 +38,9 @@ export class Clinic {
     clinicComments: number;
 
     @Field(() => Int)
+    clinicDoctors: number;
+
+    @Field(() => Int)
     clinicRank: number;
 
     @Field(() => String)

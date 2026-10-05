@@ -1,6 +1,6 @@
 import { ClinicService } from "./clinic.service";
 import { Clinic, Clinics } from "../../libs/dto/clinic/clinic";
-import { AllClinicsInquiry, ClinicInput, ClinicsInquiry } from "../../libs/dto/clinic/clinic.input";
+import { AllClinicsInquiry, ClinicsInquiry } from "../../libs/dto/clinic/clinic.input";
 import { ClinicUpdate } from "../../libs/dto/clinic/clinic.update";
 import { OrdinaryInquiry } from "../../libs/dto/common/common.input";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -17,18 +17,6 @@ import { AuthGuard } from "../auth/guards/auth.guard";
 @Resolver()
 export class ClinicResolver {
     constructor(private readonly clinicService: ClinicService) { }
-
-    @Roles(MemberType.CLINIC)
-    @UseGuards(RolesGuard)
-    @Mutation(() => Clinic)
-    public async createClinic(
-        @Args('input') input: ClinicInput,
-        @AuthMember("_id") memberId: ObjectId
-    ): Promise<Clinic> {
-        console.log("Mutation: createClinic");
-        input.memberId = memberId;
-        return await this.clinicService.createClinic(input);
-    }
 
     @UseGuards(WithoutGuard)
     @Query((returns) => Clinic)

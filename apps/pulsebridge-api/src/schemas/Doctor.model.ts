@@ -11,9 +11,10 @@ const DoctorSchema = new Schema(
 			ref: 'Member',
 		},
 
+		// null until a clinic approves the doctor's join request
 		clinicId: {
 			type: Schema.Types.ObjectId,
-			required: true,
+			default: null,
 			ref: 'Clinic',
 		},
 

@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException } from "@
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, ObjectId } from "mongoose";
 import { Clinic, Clinics } from "../../libs/dto/clinic/clinic";
-import { AllClinicsInquiry, ClinicInput, ClinicsInquiry } from "../../libs/dto/clinic/clinic.input";
+import { AllClinicsInquiry, ClinicsInquiry } from "../../libs/dto/clinic/clinic.input";
 import { ClinicUpdate } from "../../libs/dto/clinic/clinic.update";
 import { OrdinaryInquiry } from "../../libs/dto/common/common.input";
 import { Direction, Message } from "../../libs/enums/common.enum";
@@ -27,18 +27,6 @@ export class ClinicService {
         private likeService: LikeService,
         private notificationService: NotificationService
     ) {}
-
-    public async createClinic(input: ClinicInput): Promise<Clinic> {
-        const exist = await this.clinicModel.findOne({ memberId: input.memberId }).exec();
-        if (exist) throw new BadRequestException(Message.CLINIC_ALREADY_EXISTS);
-
-        try {
-            return await this.clinicModel.create(input);
-        } catch (err) {
-            console.log("Error, Service.model: ", err.message);
-            throw new BadRequestException(Message.CREATE_FAILED);
-        }
-    }
 
     public async getClinic(memberId: ObjectId, clinicId: ObjectId): Promise<Clinic> {
         const search: T = {

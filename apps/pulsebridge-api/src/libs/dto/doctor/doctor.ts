@@ -14,8 +14,9 @@ export class Doctor {
     @Field(() => String)
     memberId: ObjectId;
 
-    @Field(() => String)
-    clinicId: ObjectId;
+    // null while the doctor does not work in any clinic
+    @Field(() => String, {nullable: true})
+    clinicId?: ObjectId | null;
 
     @Field(() => DoctorSpecialty)
     specialty: DoctorSpecialty;

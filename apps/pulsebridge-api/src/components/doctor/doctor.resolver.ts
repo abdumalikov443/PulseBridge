@@ -3,7 +3,8 @@ import { UseGuards } from "@nestjs/common";
 import { ObjectId } from "mongoose";
 import { DoctorService } from "./doctor.service";
 import { Doctor, Doctors } from "../../libs/dto/doctor/doctor";
-import { DoctorInput, DoctorsInquiry } from "../../libs/dto/doctor/doctor.input";
+import { DoctorsInquiry, JoinRequestUpdate } from "../../libs/dto/doctor/doctor.input";
+import { ClinicJoinRequest, ClinicJoinRequests } from "../../libs/dto/doctor/join-request";
 import { DoctorUpdate } from "../../libs/dto/doctor/doctor.update";
 import { OrdinaryInquiry } from "../../libs/dto/common/common.input";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -18,16 +19,64 @@ import { shapeIntoMongoObjectId } from "../../libs/config";
 export class DoctorResolver {
     constructor(private readonly doctorService: DoctorService) { }
 
+    /** JOIN REQUESTS **/
+
+    @Roles(MemberType.DOCTOR)
+    @UseGuards(RolesGuard)
+    @Mutation(() => ClinicJoinRequest)
+    public async requestJoinClinic(
+        @Args('clinicId') input: string,
+        @AuthMember('_id') memberId: ObjectId
+    ): Promise<ClinicJoinRequest> {
+        console.log("Mutation: requestJoinClinic");
+        const clinicId = shapeIntoMongoObjectId(input);
+        return await this.doctorService.requestJoinClinic(memberId, clinicId);
+    }
+
+    @Roles(MemberType.DOCTOR)
+    @UseGuards(RolesGuard)
+    @Mutation(() => ClinicJoinRequest)
+    public async cancelJoinRequest(
+        @Args('requestId') input: string,
+        @AuthMember('_id') memberId: ObjectId
+    ): Promise<ClinicJoinRequest> {
+        console.log("Mutation: cancelJoinRequest");
+        const requestId = shapeIntoMongoObjectId(input);
+        return await this.doctorService.cancelJoinRequest(memberId, requestId);
+    }
+
+    @Roles(MemberType.DOCTOR)
+    @UseGuards(RolesGuard)
+    @Query(() => ClinicJoinRequests)
+    public async getMyJoinRequests(
+        @Args('input') input: OrdinaryInquiry,
+        @AuthMember('_id') memberId: ObjectId
+    ): Promise<ClinicJoinRequests> {
+        console.log("Query: getMyJoinRequests");
+        return await this.doctorService.getMyJoinRequests(memberId, input);
+    }
+
     @Roles(MemberType.CLINIC)
     @UseGuards(RolesGuard)
-    @Mutation(() => Doctor)
-    public async createDoctor(
-        @Args('input') input: DoctorInput,
+    @Query(() => ClinicJoinRequests)
+    public async getClinicJoinRequests(
+        @Args('input') input: OrdinaryInquiry,
         @AuthMember('_id') memberId: ObjectId
-    ): Promise<Doctor> {
-        console.log("Mutation: createDoctor");
-        input.memberId = shapeIntoMongoObjectId(input.memberId);
-        return await this.doctorService.createDoctor(memberId, input);
+    ): Promise<ClinicJoinRequests> {
+        console.log("Query: getClinicJoinRequests");
+        return await this.doctorService.getClinicJoinRequests(memberId, input);
+    }
+
+    @Roles(MemberType.CLINIC)
+    @UseGuards(RolesGuard)
+    @Mutation(() => ClinicJoinRequest)
+    public async respondJoinRequest(
+        @Args('input') input: JoinRequestUpdate,
+        @AuthMember('_id') memberId: ObjectId
+    ): Promise<ClinicJoinRequest> {
+        console.log("Mutation: respondJoinRequest");
+        input._id = shapeIntoMongoObjectId(input._id);
+        return await this.doctorService.respondJoinRequest(memberId, input);
     }
 
     @UseGuards(WithoutGuard)

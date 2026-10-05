@@ -6,6 +6,7 @@ import { Direction } from "../../enums/common.enum";
 import { availableClinicSorts } from "../../config";
 
 
+// clinic profile sent with a CLINIC signup
 @InputType()
 export class ClinicInput {
     @IsNotEmpty()

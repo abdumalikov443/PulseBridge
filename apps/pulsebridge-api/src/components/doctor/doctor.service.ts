@@ -2,19 +2,20 @@ import { BadRequestException, ForbiddenException, Injectable, InternalServerErro
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, ObjectId, PipelineStage } from "mongoose";
 import { Doctor, Doctors } from "../../libs/dto/doctor/doctor";
-import { DoctorInput, DoctorsInquiry } from "../../libs/dto/doctor/doctor.input";
+import { DoctorsInquiry, JoinRequestUpdate } from "../../libs/dto/doctor/doctor.input";
+import { ClinicJoinRequest, ClinicJoinRequests } from "../../libs/dto/doctor/join-request";
+import { JoinRequestStatus } from "../../libs/enums/doctor.enum";
 import { DoctorUpdate } from "../../libs/dto/doctor/doctor.update";
 import { OrdinaryInquiry } from "../../libs/dto/common/common.input";
 import { LikeInput } from "../../libs/dto/like/like.input";
 import { Direction, Message } from "../../libs/enums/common.enum";
-import { MemberStatus, MemberType } from "../../libs/enums/member.enum";
+import { MemberStatus } from "../../libs/enums/member.enum";
 import { ClinicStatus } from "../../libs/enums/clinic.enum";
 import { AppointmentStatus } from "../../libs/enums/appointment.enum";
 import { ViewGroup } from "../../libs/enums/view.enum";
 import { LikeGroup } from "../../libs/enums/like.enum";
 import { StatisticModifier, T } from "../../libs/types/common";
-import { lookupAuthMemberLiked, lookupClinic, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from "../../libs/config";
-import { MemberService } from "../member/member.service";
+import { lookupAuthMemberLiked, lookupClinic, lookupDoctor, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from "../../libs/config";
 import { ClinicService } from "../clinic/clinic.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
@@ -25,35 +26,127 @@ import { NotificationGroup, NotificationType } from "../../libs/enums/notificati
 export class DoctorService {
     constructor (
         @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
+        @InjectModel("ClinicJoinRequest") private readonly requestModel: Model<ClinicJoinRequest>,
         @InjectModel("Appointment") private readonly appointmentModel: Model<any>,
-        private memberService: MemberService,
         private clinicService: ClinicService,
         private viewService: ViewService,
         private likeService: LikeService,
         private notificationService: NotificationService
     ) {}
 
-    // clinic owner adds a DOCTOR member (or himself) to his clinic
-    public async createDoctor(ownerId: ObjectId, input: DoctorInput): Promise<Doctor> {
-        const clinic = await this.clinicService.getMyClinic(ownerId);
-        const target = await this.memberService.getMember(null as unknown as ObjectId, input.memberId);
+    /** JOIN REQUESTS **/
 
-        const isOwner = String(target._id) === String(ownerId);
-        if (target.memberStatus !== MemberStatus.ACTIVE || (target.memberType !== MemberType.DOCTOR && !isOwner)) {
-            throw new BadRequestException(Message.ONLY_DOCTOR_MEMBERS);
-        }
+    // doctor without a clinic asks an active clinic; one pending request at a time
+    public async requestJoinClinic(memberId: ObjectId, clinicId: ObjectId): Promise<ClinicJoinRequest> {
+        const doctor = await this.getDoctorProfileByMember(memberId);
+        if (doctor.clinicId) throw new BadRequestException(Message.DOCTOR_HAS_CLINIC);
+        const clinic = await this.clinicService.getClinic(null as unknown as ObjectId, clinicId);
 
-        const exist = await this.doctorModel.findOne({ memberId: input.memberId }).exec();
-        if (exist) throw new BadRequestException(Message.DOCTOR_ALREADY_EXISTS);
+        const pending = await this.requestModel.exists({ doctorId: doctor._id, requestStatus: JoinRequestStatus.PENDING }).exec();
+        if (pending) throw new BadRequestException(Message.DOCTOR_REQUEST_EXISTS);
 
-        input.clinicId = clinic._id;
+        let result: ClinicJoinRequest;
         try {
-            return await this.doctorModel.create(input);
-        } catch (err) {
+            result = await this.requestModel.create({ doctorId: doctor._id, clinicId: clinic._id });
+        } catch (err: any) {
             console.log("Error, Service.model: ", err.message);
+            // unique index: two requests sent at the same moment
+            if (err.code === 11000) throw new BadRequestException(Message.DOCTOR_REQUEST_EXISTS);
             throw new BadRequestException(Message.CREATE_FAILED);
         }
+
+        await this.notificationService.createNotification({
+            notificationType: NotificationType.DOCTOR_REQUEST,
+            notificationGroup: NotificationGroup.CLINIC,
+            notificationTitle: "New doctor request",
+            notificationDesc: `A doctor wants to join ${clinic.clinicName}`,
+            authorId: memberId,
+            receiverId: clinic.memberId,
+        });
+        return result;
     }
+
+    public async cancelJoinRequest(memberId: ObjectId, requestId: ObjectId): Promise<ClinicJoinRequest> {
+        const doctor = await this.getDoctorProfileByMember(memberId);
+        const result = await this.requestModel
+            .findOneAndDelete({ _id: requestId, doctorId: doctor._id, requestStatus: JoinRequestStatus.PENDING })
+            .exec();
+        if (!result) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result;
+    }
+
+    // doctor's own requests (any status) with the requested clinic
+    public async getMyJoinRequests(memberId: ObjectId, input: OrdinaryInquiry): Promise<ClinicJoinRequests> {
+        const doctor = await this.getDoctorProfileByMember(memberId);
+        return await this.getJoinRequestList({ doctorId: doctor._id }, input, [
+            lookupClinic,
+            { $unwind: { path: '$clinicData', preserveNullAndEmptyArrays: true } },
+        ]);
+    }
+
+    // pending requests to the owner's clinic with the doctor and his member data
+    public async getClinicJoinRequests(ownerId: ObjectId, input: OrdinaryInquiry): Promise<ClinicJoinRequests> {
+        const clinic = await this.clinicService.getMyClinic(ownerId);
+        return await this.getJoinRequestList({ clinicId: clinic._id, requestStatus: JoinRequestStatus.PENDING }, input, [
+            lookupDoctor,
+            { $unwind: '$doctorData' },
+        ]);
+    }
+
+    private async getJoinRequestList(match: T, input: OrdinaryInquiry, lookups: PipelineStage.FacetPipelineStage[]): Promise<ClinicJoinRequests> {
+        const result = await this.requestModel
+            .aggregate([
+                { $match: match },
+                { $sort: { updatedAt: Direction.DESC } },
+                {
+                    $facet: {
+                        list: [{ $skip: (input.page - 1) * input.limit }, { $limit: input.limit }, ...lookups],
+                        metaCounter: [{ $count: 'total' }],
+                    },
+                },
+            ])
+            .exec();
+
+        if (!result.length) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+        return result[0];
+    }
+
+    // only the owner of the requested clinic answers, and only PENDING requests
+    public async respondJoinRequest(ownerId: ObjectId, input: JoinRequestUpdate): Promise<ClinicJoinRequest> {
+        const clinic = await this.clinicService.getMyClinic(ownerId);
+        const request = await this.requestModel
+            .findOne({ _id: input._id, clinicId: clinic._id, requestStatus: JoinRequestStatus.PENDING })
+            .exec();
+        if (!request) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+
+        const approved = input.requestStatus === JoinRequestStatus.APPROVED;
+        let doctor = await this.getDoctorById(request.doctorId);
+        if (approved) {
+            // only a doctor without a clinic can be attached
+            doctor = await this.doctorModel
+                .findOneAndUpdate({ _id: request.doctorId, clinicId: null }, { clinicId: clinic._id }, { new: true })
+                .exec() as unknown as Doctor;
+            if (!doctor) throw new BadRequestException(Message.DOCTOR_HAS_CLINIC);
+            await this.clinicService.clinicStatsEditor({ _id: clinic._id, targetKey: 'clinicDoctors', modifier: 1 });
+        }
+
+        const result = await this.requestModel
+            .findByIdAndUpdate(request._id, { requestStatus: input.requestStatus }, { new: true })
+            .exec();
+        if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+
+        await this.notificationService.createNotification({
+            notificationType: NotificationType.DOCTOR_REQUEST,
+            notificationGroup: NotificationGroup.CLINIC,
+            notificationTitle: approved ? "Request approved" : "Request rejected",
+            notificationDesc: `${clinic.clinicName} ${approved ? "approved" : "rejected"} your request`,
+            authorId: ownerId,
+            receiverId: doctor.memberId,
+        });
+        return result;
+    }
+
+    /** DOCTORS **/
 
     public async getDoctor(memberId: ObjectId, doctorId: ObjectId): Promise<Doctor> {
         const result = await this.doctorModel
@@ -78,10 +171,31 @@ export class DoctorService {
         return targetDoctor;
     }
 
-    // doctor record of the given member
+    // doctor profile of the given member (created at signup), with its clinic if any
     public async getMyDoctorProfile(memberId: ObjectId): Promise<Doctor> {
-        const result = await this.doctorModel.findOne({ memberId: memberId }).exec() as unknown as Doctor;
+        const result = await this.doctorModel
+            .aggregate([
+                { $match: { memberId: memberId } },
+                lookupClinic,
+                { $unwind: { path: '$clinicData', preserveNullAndEmptyArrays: true } },
+            ])
+            .exec();
+        if (!result[0]) throw new InternalServerErrorException(Message.NO_DOCTOR_PROFILE);
+        return result[0];
+    }
+
+    // doctor profile of the given member that works in a clinic
+    public async getActiveDoctorProfile(memberId: ObjectId): Promise<Doctor> {
+        const result = await this.doctorModel
+            .findOne({ memberId: memberId, clinicId: { $ne: null } })
+            .exec() as unknown as Doctor;
         if (!result) throw new InternalServerErrorException(Message.NOT_DOCTOR);
+        return result;
+    }
+
+    private async getDoctorProfileByMember(memberId: ObjectId): Promise<Doctor> {
+        const result = await this.doctorModel.findOne({ memberId: memberId }).exec() as unknown as Doctor;
+        if (!result) throw new InternalServerErrorException(Message.NO_DOCTOR_PROFILE);
         return result;
     }
 
@@ -133,9 +247,10 @@ export class DoctorService {
         return result[0];
     }
 
-    // memberData + clinicData, only active doctors in active clinics
+    // memberData + clinicData; only doctors working in an active clinic with an active member
     private activeDoctorStages(): PipelineStage[] {
         return [
+            { $match: { clinicId: { $ne: null } } },
             lookupMember,
             { $unwind: '$memberData' },
             lookupClinic,
@@ -144,13 +259,12 @@ export class DoctorService {
         ];
     }
 
-    // the doctor himself or his clinic owner
+    // the doctor himself, or the owner of the clinic he works in
     public async updateDoctor(memberId: ObjectId, input: DoctorUpdate): Promise<Doctor> {
         const doctor = await this.getDoctorById(input._id);
         const isSelf = String(doctor.memberId) === String(memberId);
-        if (!isSelf && !(await this.clinicService.isClinicOwner(doctor.clinicId, memberId))) {
-            throw new ForbiddenException(Message.NOT_ALLOWED_REQUEST);
-        }
+        const isOwner = !!doctor.clinicId && await this.clinicService.isClinicOwner(doctor.clinicId, memberId);
+        if (!isSelf && !isOwner) throw new ForbiddenException(Message.NOT_ALLOWED_REQUEST);
 
         const result = await this.doctorModel
             .findByIdAndUpdate(input._id, input, { new: true })
@@ -159,10 +273,10 @@ export class DoctorService {
         return result;
     }
 
-    // clinic owner removes a doctor from his clinic
+    // clinic owner removes a doctor from his clinic; the doctor profile stays
     public async removeDoctor(ownerId: ObjectId, doctorId: ObjectId): Promise<Doctor> {
         const clinic = await this.clinicService.getMyClinic(ownerId);
-        return await this.deleteDoctor({ _id: doctorId, clinicId: clinic._id });
+        return await this.detachDoctor({ _id: doctorId, clinicId: clinic._id });
     }
 
     public async getFavoriteDoctors(memberId: ObjectId, input: OrdinaryInquiry): Promise<Doctors> {
@@ -175,6 +289,7 @@ export class DoctorService {
 
     public async likeTargetDoctor(memberId: ObjectId, likeRefId: ObjectId): Promise<Doctor> {
         const target = await this.getDoctorById(likeRefId);
+        if (!target.clinicId) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
 
         const input: LikeInput = {
             memberId: memberId,
@@ -206,18 +321,21 @@ export class DoctorService {
     /** ADMIN **/
 
     public async removeDoctorByAdmin(doctorId: ObjectId): Promise<Doctor> {
-        return await this.deleteDoctor({ _id: doctorId });
+        return await this.detachDoctor({ _id: doctorId, clinicId: { $ne: null } });
     }
 
-    private async deleteDoctor(search: T): Promise<Doctor> {
+    private async detachDoctor(search: T): Promise<Doctor> {
         const hasAppointments = await this.appointmentModel
             .exists({ doctorId: search._id, appointmentStatus: AppointmentStatus.CONFIRMED })
             .exec();
         if (hasAppointments) throw new BadRequestException(Message.DOCTOR_HAS_APPOINTMENTS);
 
-        const result = await this.doctorModel.findOneAndDelete(search).exec();
-        if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
-        return result;
+        // returns the doctor before the update, to know which clinic loses him
+        const before = await this.doctorModel.findOneAndUpdate(search, { clinicId: null }).exec();
+        if (!before) throw new InternalServerErrorException(Message.REMOVE_FAILED);
+        await this.clinicService.clinicStatsEditor({ _id: before.clinicId as ObjectId, targetKey: 'clinicDoctors', modifier: -1 });
+
+        return await this.getDoctorById(before._id);
     }
 
     public async doctorStatsEditor(input: StatisticModifier): Promise<Doctor> {

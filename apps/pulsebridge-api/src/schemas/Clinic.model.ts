@@ -49,6 +49,12 @@ const ClinicSchema = new Schema(
 			default: 0,
 		},
 
+		// number of doctors working in the clinic
+		clinicDoctors: {
+			type: Number,
+			default: 0,
+		},
+
 		clinicRank: {
 			type: Number,
 			default: 0,

@@ -4,8 +4,8 @@ import { DoctorResolver } from './doctor.resolver';
 import { DoctorService } from './doctor.service';
 import DoctorSchema from '../../schemas/Doctor.model';
 import AppointmentSchema from '../../schemas/Appointment.model';
+import ClinicJoinRequestSchema from '../../schemas/ClinicJoinRequest.model';
 import { AuthModule } from '../auth/auth.module';
-import { MemberModule } from '../member/member.module';
 import { ClinicModule } from '../clinic/clinic.module';
 import { ViewModule } from '../view/view.module';
 import { LikeModule } from '../like/like.module';
@@ -15,8 +15,8 @@ import { NotificationModule } from '../notification/notification.module';
     imports: [
         MongooseModule.forFeature([{name: "Doctor", schema: DoctorSchema}]),
         MongooseModule.forFeature([{name: "Appointment", schema: AppointmentSchema}]),
+        MongooseModule.forFeature([{name: "ClinicJoinRequest", schema: ClinicJoinRequestSchema}]),
         AuthModule,
-        MemberModule,
         ClinicModule,
         ViewModule,
         LikeModule,

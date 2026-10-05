@@ -11,3 +11,13 @@ export enum DoctorSpecialty {
 registerEnumType(DoctorSpecialty, {
 	name: 'DoctorSpecialty',
 });
+
+// doctor's request to join a clinic (clinicJoinRequests)
+export enum JoinRequestStatus {
+	PENDING = 'PENDING',
+	APPROVED = 'APPROVED',
+	REJECTED = 'REJECTED',
+}
+registerEnumType(JoinRequestStatus, {
+	name: 'JoinRequestStatus',
+});

@@ -1,18 +1,14 @@
 import { Field, InputType, Int } from "@nestjs/graphql";
 import { IsIn, IsInt, IsNotEmpty, IsOptional, Min } from "class-validator";
 import { ObjectId } from "mongoose";
-import { DoctorSpecialty } from "../../enums/doctor.enum";
+import { DoctorSpecialty, JoinRequestStatus } from "../../enums/doctor.enum";
 import { Direction } from "../../enums/common.enum";
 import { availableDoctorSorts } from "../../config";
 
 
+// doctor profile sent with a DOCTOR signup
 @InputType()
-export class DoctorInput {
-    // DOCTOR member to add (or the clinic owner himself)
-    @IsNotEmpty()
-    @Field(() => String)
-    memberId: ObjectId;
-
+export class DoctorProfileInput {
     @IsNotEmpty()
     @Field(() => DoctorSpecialty)
     specialty: DoctorSpecialty;
@@ -22,8 +18,20 @@ export class DoctorInput {
     @Min(0)
     @Field(() => Int)
     experience: number;
+}
 
-    clinicId?: ObjectId;
+
+// clinic owner approves or rejects a join request
+@InputType()
+export class JoinRequestUpdate {
+    @IsNotEmpty()
+    @Field(() => String)
+    _id: ObjectId;
+
+    @IsNotEmpty()
+    @IsIn([JoinRequestStatus.APPROVED, JoinRequestStatus.REJECTED])
+    @Field(() => JoinRequestStatus)
+    requestStatus: JoinRequestStatus;
 }
 
 

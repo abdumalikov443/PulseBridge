@@ -12,9 +12,10 @@
  *   boardArticles  renamed to articles; drop articleCategory
  *   likes/views/comments/notifications  delete PROPERTY and MEMBER groups (notifications: only PROPERTY)
  *   clinics        clinicType = PRIVATE where missing (clinics created before the field existed)
+ *   doctors        old doctorStatus: PENDING -> clinicJoinRequests, REJECTED -> no clinic, field removed;
+ *                  DOCTOR members without a profile get one (GENERAL, 0 years, no clinic)
+ *   clinics        clinicDoctors counted where missing; CLINIC members without a clinic are only listed
  *   properties     collection dropped
- *
- * DOCTOR members get no `doctors` record: a clinic owner must add them to a clinic.
  */
 require('dotenv').config();
 const mongoose = require('mongoose');
@@ -81,6 +82,45 @@ async function main() {
 	const clinics = db.collection('clinics');
 	await step('clinics without clinicType set to PRIVATE', await clinics.countDocuments({ clinicType: { $exists: false } }), () =>
 		clinics.updateMany({ clinicType: { $exists: false } }, { $set: { clinicType: 'PRIVATE' } }),
+	);
+
+	// previous design kept the join request in doctors.doctorStatus -> clinicId + clinicJoinRequests
+	const doctors = db.collection('doctors');
+	const requests = db.collection('clinicJoinRequests');
+	const pendingDoctors = await doctors.find({ doctorStatus: 'PENDING' }).toArray();
+	await step('PENDING doctors moved to clinicJoinRequests', pendingDoctors.length, async () => {
+		const now = new Date();
+		await requests.insertMany(pendingDoctors.map((d) => ({ doctorId: d._id, clinicId: d.clinicId, requestStatus: 'PENDING', createdAt: now, updatedAt: now })));
+		await doctors.updateMany({ doctorStatus: 'PENDING' }, { $set: { clinicId: null } });
+	});
+	await step('REJECTED doctors detached from the clinic', await doctors.countDocuments({ doctorStatus: 'REJECTED' }), () =>
+		doctors.updateMany({ doctorStatus: 'REJECTED' }, { $set: { clinicId: null } }),
+	);
+	await step('doctors doctorStatus field removed', await doctors.countDocuments({ doctorStatus: { $exists: true } }), () =>
+		doctors.updateMany({ doctorStatus: { $exists: true } }, { $unset: { doctorStatus: '' } }),
+	);
+
+	// every DOCTOR member has a profile (signup creates it now); AGENT counts in a dry run
+	const doctorMemberIds = (await doctors.find({}, { projection: { memberId: 1 } }).toArray()).map((d) => d.memberId);
+	const noProfile = await members.find({ memberType: { $in: ['DOCTOR', 'AGENT'] }, _id: { $nin: doctorMemberIds } }, { projection: { _id: 1 } }).toArray();
+	await step('DOCTOR members without profile: profile created (GENERAL, 0 years, no clinic)', noProfile.length, () => {
+		const now = new Date();
+		return doctors.insertMany(noProfile.map((m) => ({
+			memberId: m._id, clinicId: null, specialty: 'GENERAL', experience: 0,
+			doctorViews: 0, doctorLikes: 0, doctorComments: 0, doctorRank: 0, createdAt: now, updatedAt: now,
+		})));
+	});
+
+	// CLINIC members without a clinic cannot be fixed automatically (name, address are unknown)
+	const clinicOwnerIds = (await clinics.find({}, { projection: { memberId: 1 } }).toArray()).map((c) => c.memberId);
+	const noClinic = await members.find({ memberType: 'CLINIC', _id: { $nin: clinicOwnerIds } }, { projection: { memberNick: 1 } }).toArray();
+	if (noClinic.length) console.log(`WARN  CLINIC members without a clinic, delete them and sign up again: ${noClinic.map((m) => m.memberNick).join(', ')}`);
+
+	const noCounter = await clinics.find({ clinicDoctors: { $exists: false } }, { projection: { _id: 1 } }).toArray();
+	await step('clinics clinicDoctors counted', noCounter.length, () =>
+		Promise.all(noCounter.map(async (c) =>
+			clinics.updateOne({ _id: c._id }, { $set: { clinicDoctors: await doctors.countDocuments({ clinicId: c._id }) } }),
+		)),
 	);
 
 	if (await hasCollection(db, 'properties')) {

@@ -2,17 +2,6 @@
 
 PulseBridge is a NestJS GraphQL monorepo migrated from a real-estate platform (Nestar) into a healthcare platform: patients find clinics and doctors, book appointments and read health articles.
 
-## Read First
-
-Before changing code, read the current AI handoff docs:
-
-- `docs/ai/BACKEND_MIGRATION.md`
-- `docs/ai/DECISIONS.md`
-- `docs/ai/COMPLETED_TASKS.md`
-- `docs/ai/NEXT_STEPS.md`
-
-Use those files as the source of truth for AI Agent related migration history, accepted decisions, remaining work and validation status.
-
 ## Project Shape
 
 - Backend apps are `pulsebridge-api` and `pulsebridge-batch`.
@@ -27,8 +16,9 @@ Use those files as the source of truth for AI Agent related migration history, a
 - `MemberType` is `PATIENT | DOCTOR | CLINIC | ADMIN`. `ADMIN` cannot be chosen at signup, and members cannot change their own type or status.
 - Permissions come from ownership, not only from `memberType`:
   - clinic owner = `clinics.memberId` (1 member = 1 clinic)
-  - doctor = a `doctors` record with `memberId` (1 member = 1 clinic); clinic owners add doctors, and may add themselves
+  - doctor = a `doctors` profile created at DOCTOR signup (`clinicId` null). It joins a clinic via `clinicJoinRequests` (PENDING → the clinic owner APPROVED/REJECTED); removal sets `clinicId` back to null. Only doctors with a clinic are public, bookable or likeable
   - appointment: the patient cancels; the doctor or clinic owner completes or cancels (`appointment.policy.ts`)
+- Member = account, Clinic/Doctor = profile: `memberType` is required at signup and CLINIC/DOCTOR send `clinicProfile`/`doctorProfile` in the same signup. One account = one role (a clinic owner is not a doctor).
 - Like/View/Comment groups are `DOCTOR | CLINIC | ARTICLE`. `*RefId` points to `doctors._id`, `clinics._id` or `articles._id`.
 - Escape user text before `$regex` with `shapeIntoSearchRegex` (`libs/config.ts`).
 
@@ -37,8 +27,7 @@ Use those files as the source of truth for AI Agent related migration history, a
 1. Analyze before editing.
 2. Keep changes small and consistent with existing project patterns.
 3. Do not remove working logic unless it is replaced safely.
-4. Update `docs/ai/COMPLETED_TASKS.md` after major completed work.
-5. Add or update focused tests when behavior changes.
+4. Add or update focused tests when behavior changes.
 
 ## Validation
 

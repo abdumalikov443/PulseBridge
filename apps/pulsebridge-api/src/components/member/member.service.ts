@@ -10,6 +10,8 @@ import { MemberUpdate } from '../../libs/dto/member/member.update';
 import { StatisticModifier, T } from '../../libs/types/common';
 import { Follower, Following, MeFollowed } from '../../libs/dto/follow/follow';
 import { shapeIntoSearchRegex } from '../../libs/config';
+import { Doctor } from '../../libs/dto/doctor/doctor';
+import { Clinic } from '../../libs/dto/clinic/clinic';
 
 @Injectable()
 export class MemberService {
@@ -17,21 +19,43 @@ export class MemberService {
     constructor(
         @InjectModel("Member") private readonly memberModel: Model<Member>,
         @InjectModel("Follow") private readonly followModel: Model<Follower | Following>,
+        @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
+        @InjectModel("Clinic") private readonly clinicModel: Model<Clinic>,
         private authService: AuthService,
     ) { }
 
+    // member = account; DOCTOR and CLINIC get their profile (doctors / clinics) in the same signup
     public async signup(input: MemberInput): Promise<Member> {
-        if (input.memberType === MemberType.ADMIN) throw new BadRequestException(Message.NOT_ALLOWED_REQUEST);
+        const { memberType, doctorProfile, clinicProfile } = input;
+        if (memberType === MemberType.ADMIN) throw new BadRequestException(Message.NOT_ALLOWED_REQUEST);
+        const profileMatches =
+            memberType === MemberType.DOCTOR ? !!doctorProfile && !clinicProfile
+            : memberType === MemberType.CLINIC ? !!clinicProfile && !doctorProfile
+            : !doctorProfile && !clinicProfile;
+        if (!profileMatches) throw new BadRequestException(Message.PROFILE_MISMATCH);
 
-        input.memberPassword = await this.authService.hashPassword(input.memberPassword);
+        const { memberNick, memberPhone } = input;
+        const memberPassword = await this.authService.hashPassword(input.memberPassword);
+        let result: Member;
         try {
-            const result = await this.memberModel.create(input);
-            result.accessToken = await this.authService.createToken(result);
-            return result;
-        } catch (err) {
+            result = await this.memberModel.create({ memberNick, memberPhone, memberPassword, memberType });
+        } catch (err:any) {
             console.log("Error, Service.model: ", err.message);
             throw new BadRequestException(Message.USED_MEMBER_NICK_OR_PHONE);
         }
+
+        try {
+            if (doctorProfile) await this.doctorModel.create({ ...doctorProfile, memberId: result._id });
+            if (clinicProfile) await this.clinicModel.create({ ...clinicProfile, memberId: result._id });
+        } catch (err:any) {
+            // no account without its profile
+            console.log("Error, Service.model: ", err.message);
+            await this.memberModel.deleteOne({ _id: result._id }).exec();
+            throw new BadRequestException(Message.CREATE_FAILED);
+        }
+
+        result.accessToken = await this.authService.createToken(result);
+        return result;
     }
 
     public async login(input: LoginInput): Promise<Member> {

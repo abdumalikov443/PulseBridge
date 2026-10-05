@@ -39,7 +39,7 @@ export class AppointmentService {
 
         input.appointmentDate = day.toDate();
         input.memberId = memberId;
-        input.clinicId = doctor.clinicId;
+        input.clinicId = doctor.clinicId as ObjectId; // getDoctor returns only doctors working in a clinic
 
         const taken = await this.appointmentModel
             .exists({
@@ -120,7 +120,7 @@ export class AppointmentService {
     }
 
     public async getDoctorAppointments(memberId: ObjectId, input: AppointmentsInquiry): Promise<Appointments> {
-        const doctor = await this.doctorService.getMyDoctorProfile(memberId);
+        const doctor = await this.doctorService.getActiveDoctorProfile(memberId);
         return await this.getAppointmentList({ doctorId: doctor._id }, input);
     }
 

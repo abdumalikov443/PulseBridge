@@ -1,5 +1,8 @@
 import { Field, InputType, Int } from "@nestjs/graphql";
-import { IsIn, IsNotEmpty, IsOptional, Length, Min } from "class-validator";
+import { IsIn, IsNotEmpty, IsOptional, Length, Min, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
+import { DoctorProfileInput } from "../doctor/doctor.input";
+import { ClinicInput } from "../clinic/clinic.input";
 import { MemberStatus, MemberType } from "../../enums/member.enum";
 import { availableMemberSorts } from "../../config";
 import { Direction } from "../../enums/common.enum";
@@ -21,10 +24,25 @@ export class MemberInput {
     @Field(() => String)
     memberPhone: string;
 
-    @IsOptional()
+    // required; ADMIN cannot be chosen, memberStatus always starts ACTIVE
+    @IsNotEmpty()
     @IsIn([MemberType.PATIENT, MemberType.DOCTOR, MemberType.CLINIC])
-    @Field(() => MemberType, {nullable: true})
-    memberType?: MemberType;
+    @Field(() => MemberType)
+    memberType: MemberType;
+
+    // required for DOCTOR; the doctor profile is created together with the member
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => DoctorProfileInput)
+    @Field(() => DoctorProfileInput, {nullable: true})
+    doctorProfile?: DoctorProfileInput;
+
+    // required for CLINIC; the clinic is created together with the member
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => ClinicInput)
+    @Field(() => ClinicInput, {nullable: true})
+    clinicProfile?: ClinicInput;
 }
 
 

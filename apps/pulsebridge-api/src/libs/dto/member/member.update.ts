@@ -1,6 +1,6 @@
 import { Field, InputType } from "@nestjs/graphql";
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
-import { MemberStatus, MemberType } from "../../enums/member.enum";
+import { MemberStatus } from "../../enums/member.enum";
 import { ObjectId } from "mongoose";
 
 
@@ -10,10 +10,7 @@ export class MemberUpdate {
     @Field(() => String)
     _id: ObjectId;
 
-    @IsOptional()
-    @Field(() => MemberType, {nullable: true})
-    memberType?: MemberType;
-    
+    // memberType is never changed after signup (one ADMIN, profiles tied to the role)
     @IsOptional()
     @Field(() => MemberStatus, {nullable: true})
     memberStatus?: MemberStatus;

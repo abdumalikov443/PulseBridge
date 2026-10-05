@@ -26,23 +26,29 @@ export class MemberService {
 
     // member = account; DOCTOR and CLINIC get their profile (doctors / clinics) in the same signup
     public async signup(input: MemberInput): Promise<Member> {
-        const { memberType, doctorProfile, clinicProfile } = input;
+        const { memberType, doctorProfile, clinicProfile, memberNick, memberPhone } = input;
         if (memberType === MemberType.ADMIN) throw new BadRequestException(Message.NOT_ALLOWED_REQUEST);
+        const memberPassword = await this.authService.hashPassword(input.memberPassword);
+
+        // the very first account of the platform becomes its only ADMIN
+        const adminExists = await this.memberModel.exists({ memberType: MemberType.ADMIN }).exec();
+        if (!adminExists) {
+            if (doctorProfile || clinicProfile) throw new BadRequestException(Message.FIRST_ACCOUNT_ADMIN);
+            const admin = await this.createMember({ memberNick, memberPhone, memberPassword, memberType: MemberType.ADMIN });
+            if (admin) {
+                admin.accessToken = await this.authService.createToken(admin);
+                return admin;
+            }
+            // null: another signup became ADMIN at the same moment, continue as a normal member
+        }
+
         const profileMatches =
             memberType === MemberType.DOCTOR ? !!doctorProfile && !clinicProfile
             : memberType === MemberType.CLINIC ? !!clinicProfile && !doctorProfile
             : !doctorProfile && !clinicProfile;
         if (!profileMatches) throw new BadRequestException(Message.PROFILE_MISMATCH);
 
-        const { memberNick, memberPhone } = input;
-        const memberPassword = await this.authService.hashPassword(input.memberPassword);
-        let result: Member;
-        try {
-            result = await this.memberModel.create({ memberNick, memberPhone, memberPassword, memberType });
-        } catch (err:any) {
-            console.log("Error, Service.model: ", err.message);
-            throw new BadRequestException(Message.USED_MEMBER_NICK_OR_PHONE);
-        }
+        const result = await this.createMember({ memberNick, memberPhone, memberPassword, memberType }) as Member;
 
         try {
             if (doctorProfile) await this.doctorModel.create({ ...doctorProfile, memberId: result._id });
@@ -56,6 +62,17 @@ export class MemberService {
 
         result.accessToken = await this.authService.createToken(result);
         return result;
+    }
+
+    // null when the ADMIN unique index rejects a second ADMIN
+    private async createMember(data: T): Promise<Member | null> {
+        try {
+            return await this.memberModel.create(data);
+        } catch (err:any) {
+            console.log("Error, Service.model: ", err.message);
+            if (err.code === 11000 && err.keyPattern?.memberType) return null;
+            throw new BadRequestException(Message.USED_MEMBER_NICK_OR_PHONE);
+        }
     }
 
     public async login(input: LoginInput): Promise<Member> {

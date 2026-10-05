@@ -96,4 +96,7 @@ const MemberSchema = new Schema({
     {timestamps: true, collection: 'members'},
 );
 
+// only one ADMIN in the whole platform
+MemberSchema.index({ memberType: 1 }, { unique: true, partialFilterExpression: { memberType: MemberType.ADMIN } });
+
 export default MemberSchema;

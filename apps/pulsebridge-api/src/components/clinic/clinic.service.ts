@@ -17,11 +17,18 @@ import { LikeService } from "../like/like.service";
 import { LikeInput } from "../../libs/dto/like/like.input";
 import { NotificationService } from "../notification/notification.service";
 import { NotificationGroup, NotificationType } from "../../libs/enums/notification.enum";
+import { Doctor } from "../../libs/dto/doctor/doctor";
+import { ClinicJoinRequest } from "../../libs/dto/doctor/join-request";
+import { JoinRequestStatus } from "../../libs/enums/doctor.enum";
+import { AppointmentStatus } from "../../libs/enums/appointment.enum";
 
 @Injectable()
 export class ClinicService {
     constructor (
         @InjectModel("Clinic") private readonly clinicModel: Model<Clinic>,
+        @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
+        @InjectModel("ClinicJoinRequest") private readonly requestModel: Model<ClinicJoinRequest>,
+        @InjectModel("Appointment") private readonly appointmentModel: Model<any>,
         private memberService: MemberService,
         private viewService: ViewService,
         private likeService: LikeService,
@@ -72,13 +79,41 @@ export class ClinicService {
             memberId: memberId,
             clinicStatus: { $ne: ClinicStatus.DELETE }
         };
+        return await this.saveClinicUpdate(search, input);
+    }
+
+    // DELETE: blocked while appointments are confirmed; afterwards the clinic's doctors are released
+    private async saveClinicUpdate(search: T, input: ClinicUpdate): Promise<Clinic> {
+        const deleting = input.clinicStatus === ClinicStatus.DELETE;
+        if (deleting) {
+            const target = await this.clinicModel.findOne(search).exec();
+            if (!target) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+            await this.checkNoConfirmedAppointments(target._id);
+        }
 
         const result = await this.clinicModel
             .findOneAndUpdate(search, input, { new: true })
             .exec();
-
         if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+
+        if (deleting) await this.releaseClinic(result._id);
         return result;
+    }
+
+    private async checkNoConfirmedAppointments(clinicId: ObjectId): Promise<void> {
+        const confirmed = await this.appointmentModel
+            .exists({ clinicId: clinicId, appointmentStatus: AppointmentStatus.CONFIRMED })
+            .exec();
+        if (confirmed) throw new BadRequestException(Message.CLINIC_HAS_APPOINTMENTS);
+    }
+
+    // doctors leave the clinic (profiles stay) and its pending join requests are rejected
+    private async releaseClinic(clinicId: ObjectId): Promise<void> {
+        await this.doctorModel.updateMany({ clinicId: clinicId }, { clinicId: null }).exec();
+        await this.requestModel
+            .updateMany({ clinicId: clinicId, requestStatus: JoinRequestStatus.PENDING }, { requestStatus: JoinRequestStatus.REJECTED })
+            .exec();
+        await this.clinicModel.updateOne({ _id: clinicId }, { clinicDoctors: 0 }).exec();
     }
 
     public async getClinics(memberId: ObjectId, input: ClinicsInquiry): Promise<Clinics> {
@@ -187,12 +222,7 @@ export class ClinicService {
     }
 
     public async updateClinicByAdmin(input: ClinicUpdate): Promise<Clinic> {
-        const result = await this.clinicModel
-            .findOneAndUpdate({ _id: input._id }, input, { new: true })
-            .exec();
-
-        if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
-        return result;
+        return await this.saveClinicUpdate({ _id: input._id }, input);
     }
 
     public async removeClinicByAdmin(clinicId: ObjectId): Promise<Clinic> {
@@ -200,9 +230,14 @@ export class ClinicService {
             _id: clinicId,
             clinicStatus: ClinicStatus.DELETE
         };
+        const target = await this.clinicModel.findOne(search).exec();
+        if (!target) throw new InternalServerErrorException(Message.REMOVE_FAILED);
+        await this.checkNoConfirmedAppointments(target._id);
+        // already done when the clinic became DELETE; repeated in case of older data
+        await this.releaseClinic(target._id);
+
         const result = await this.clinicModel.findOneAndDelete(search).exec();
         if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
-
         return result;
     }
 

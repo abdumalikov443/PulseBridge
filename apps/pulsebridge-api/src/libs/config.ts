@@ -19,6 +19,27 @@ export const shapeIntoSearchRegex = (text: string) => {
 };
 
 
+/** TIMEZONE **/
+
+// read at call time: .env is loaded after this file is imported
+export const getAppTimezone = (): string => process.env.APP_TIMEZONE || 'Asia/Seoul';
+
+// minutes the given timezone is ahead of UTC at the given instant
+const getTimezoneOffsetMinutes = (timeZone: string, date: Date): number => {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+	}).formatToParts(date);
+	const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+	return (Date.UTC(get('year'), get('month') - 1, get('day'), get('hour'), get('minute'), get('second')) - date.getTime()) / 60000;
+};
+
+// "YYYY-MM-DD" + "HH:mm" wall-clock time in timeZone → real instant
+export const zonedTimeToDate = (date: string, time: string, timeZone: string): Date => {
+	const wallClockAsUtc = new Date(`${date}T${time}:00Z`);
+	return new Date(wallClockAsUtc.getTime() - getTimezoneOffsetMinutes(timeZone, wallClockAsUtc) * 60000);
+};
+
+
 /** IMAGE CONFIGURATION **/
 export const validMimeTypes = ['image/png', 'image/jpg', 'image/jpeg'];
 export const availableUploadTargets = ['member', 'clinic', 'article'];

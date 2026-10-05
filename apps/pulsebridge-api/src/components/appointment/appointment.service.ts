@@ -10,7 +10,7 @@ import { MemberType } from '../../libs/enums/member.enum';
 import { Direction, Message } from '../../libs/enums/common.enum';
 import { NotificationGroup, NotificationType } from '../../libs/enums/notification.enum';
 import { T } from '../../libs/types/common';
-import { lookupClinic, lookupDoctor, lookupMember, shapeIntoMongoObjectId } from '../../libs/config';
+import { getAppTimezone, lookupClinic, lookupDoctor, lookupMember, shapeIntoMongoObjectId, zonedTimeToDate } from '../../libs/config';
 import { DoctorService } from '../doctor/doctor.service';
 import { ClinicService } from '../clinic/clinic.service';
 import { NotificationService } from '../notification/notification.service';
@@ -30,31 +30,33 @@ export class AppointmentService {
         const doctor = await this.doctorService.getDoctor(null as unknown as ObjectId, input.doctorId);
         if (String(doctor.memberId) === String(memberId)) throw new BadRequestException(Message.SELF_APPOINTMENT_DENIED);
 
-        if (!moment(input.appointmentDate).isValid()) throw new BadRequestException(Message.INVALID_APPOINTMENT_DATE);
-        const day = moment(input.appointmentDate).startOf('day');
-        const [hour, minute] = input.appointmentTime.split(':').map(Number);
-        if (!day.clone().hour(hour).minute(minute).isAfter(moment())) {
+        // calendar day stored as UTC midnight: the same "YYYY-MM-DD" on any server timezone
+        const day = moment.utc(input.appointmentDate, 'YYYY-MM-DD', true);
+        if (!day.isValid()) throw new BadRequestException(Message.INVALID_APPOINTMENT_DATE);
+        // the slot is a wall-clock time of the platform timezone (APP_TIMEZONE)
+        if (zonedTimeToDate(input.appointmentDate, input.appointmentTime, getAppTimezone()) <= new Date()) {
             throw new BadRequestException(Message.PAST_APPOINTMENT);
         }
 
-        input.appointmentDate = day.toDate();
-        input.memberId = memberId;
-        input.clinicId = doctor.clinicId as ObjectId; // getDoctor returns only doctors working in a clinic
-
+        const slot = {
+            doctorId: input.doctorId,
+            appointmentDate: day.toDate(),
+            appointmentTime: input.appointmentTime,
+        };
         const taken = await this.appointmentModel
-            .exists({
-                doctorId: input.doctorId,
-                appointmentDate: input.appointmentDate,
-                appointmentTime: input.appointmentTime,
-                appointmentStatus: AppointmentStatus.CONFIRMED,
-            })
+            .exists({ ...slot, appointmentStatus: AppointmentStatus.CONFIRMED })
             .exec();
         if (taken) throw new BadRequestException(Message.SLOT_TAKEN);
 
         let result: Appointment;
         try {
-            result = await this.appointmentModel.create(input);
-        } catch (err) {
+            result = await this.appointmentModel.create({
+                ...slot,
+                appointmentReason: input.appointmentReason,
+                memberId: memberId,
+                clinicId: doctor.clinicId, // getDoctor returns only doctors working in a clinic
+            });
+        } catch (err: any) {
             console.log("Error, Service.model: ", err.message);
             // unique index: someone booked the same slot at the same moment
             if (err.code === 11000) throw new BadRequestException(Message.SLOT_TAKEN);
@@ -100,7 +102,7 @@ export class AppointmentService {
             notificationType: NotificationType.APPOINTMENT,
             notificationGroup: NotificationGroup.DOCTOR,
             notificationTitle: `Appointment ${input.appointmentStatus.toLowerCase()}`,
-            notificationDesc: `${moment(appointment.appointmentDate).format('YYYY-MM-DD')} ${appointment.appointmentTime}`,
+            notificationDesc: `${moment.utc(appointment.appointmentDate).format('YYYY-MM-DD')} ${appointment.appointmentTime}`,
             authorId: memberId,
             receiverId: receiverId,
             appointmentId: appointment._id,
@@ -120,7 +122,8 @@ export class AppointmentService {
     }
 
     public async getDoctorAppointments(memberId: ObjectId, input: AppointmentsInquiry): Promise<Appointments> {
-        const doctor = await this.doctorService.getActiveDoctorProfile(memberId);
+        // any doctor profile: a doctor who left the clinic still sees his history
+        const doctor = await this.doctorService.getDoctorProfileByMember(memberId);
         return await this.getAppointmentList({ doctorId: doctor._id }, input);
     }
 

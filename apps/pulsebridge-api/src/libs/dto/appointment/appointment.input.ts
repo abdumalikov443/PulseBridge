@@ -11,10 +11,13 @@ export class AppointmentInput {
 	@Field(() => String)
 	doctorId: ObjectId;
 
+	// calendar day "YYYY-MM-DD"; patient (memberId) and clinicId are set by the server
 	@IsNotEmpty()
-	@Field(() => Date)
-	appointmentDate: Date;
+	@Matches(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, { message: 'appointmentDate must be YYYY-MM-DD' })
+	@Field(() => String)
+	appointmentDate: string;
 
+	// wall-clock time "HH:mm" in the platform timezone (APP_TIMEZONE, default Asia/Seoul)
 	@IsNotEmpty()
 	@Matches(/^([01]\d|2[0-3]):[0-5]\d$/)
 	@Field(() => String)
@@ -24,10 +27,6 @@ export class AppointmentInput {
 	@Length(3, 500)
 	@Field(() => String, { nullable: true })
 	appointmentReason?: string;
-
-	memberId?: ObjectId;
-
-	clinicId?: ObjectId;
 }
 
 @InputType()

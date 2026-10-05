@@ -11,6 +11,7 @@
  *   members        USER -> PATIENT, AGENT -> DOCTOR; drop memberProperties, memberAuthType, memberWarnings, memberBlocks
  *   boardArticles  renamed to articles; drop articleCategory
  *   likes/views/comments/notifications  delete PROPERTY and MEMBER groups (notifications: only PROPERTY)
+ *   clinics        clinicType = PRIVATE where missing (clinics created before the field existed)
  *   properties     collection dropped
  *
  * DOCTOR members get no `doctors` record: a clinic owner must add them to a clinic.
@@ -74,6 +75,12 @@ async function main() {
 	);
 	await step('notifications propertyId removed', await notifications.countDocuments({ propertyId: { $exists: true } }), () =>
 		notifications.updateMany({ propertyId: { $exists: true } }, { $unset: { propertyId: '' } }),
+	);
+
+	// clinics created before clinicType existed
+	const clinics = db.collection('clinics');
+	await step('clinics without clinicType set to PRIVATE', await clinics.countDocuments({ clinicType: { $exists: false } }), () =>
+		clinics.updateMany({ clinicType: { $exists: false } }, { $set: { clinicType: 'PRIVATE' } }),
 	);
 
 	if (await hasCollection(db, 'properties')) {

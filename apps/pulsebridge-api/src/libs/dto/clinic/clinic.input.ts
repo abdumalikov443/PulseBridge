@@ -1,6 +1,6 @@
 import { Field, InputType, Int } from "@nestjs/graphql";
 import { IsIn, IsNotEmpty, IsOptional, Length, Min } from "class-validator";
-import { ClinicStatus } from "../../enums/clinic.enum";
+import { ClinicStatus, ClinicType } from "../../enums/clinic.enum";
 import { ObjectId } from "mongoose";
 import { Direction } from "../../enums/common.enum";
 import { availableClinicSorts } from "../../config";
@@ -8,6 +8,10 @@ import { availableClinicSorts } from "../../config";
 
 @InputType()
 export class ClinicInput {
+    @IsNotEmpty()
+    @Field(() => ClinicType)
+    clinicType: ClinicType;
+
     @IsNotEmpty()
     @Length(3, 100)
     @Field(() => String)
@@ -33,6 +37,10 @@ export class ClinicInput {
 
 @InputType()
 class CLISearch {
+    @IsOptional()
+    @Field(() => ClinicType, {nullable: true})
+    clinicType?: ClinicType;
+
     @IsOptional()
     @Field(() => String, {nullable: true})
     text?: string;
@@ -67,6 +75,10 @@ export class ClinicsInquiry {
 
 @InputType()
 class ACLISearch {
+    @IsOptional()
+    @Field(() => ClinicType, {nullable: true})
+    clinicType?: ClinicType;
+
     @IsOptional()
     @Field(() => ClinicStatus, {nullable: true})
     clinicStatus?: ClinicStatus;

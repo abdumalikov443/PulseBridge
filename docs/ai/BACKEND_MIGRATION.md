@@ -204,6 +204,7 @@ Sections 4–7 above describe the Phase 0 baseline. This section is the current 
 | `MemberStatus` | `ACTIVE`, `BLOCK`, `DELETE` |
 | `DoctorSpecialty` | `CARDIOLOGY`, `DERMATOLOGY`, `PEDIATRICS`, `NEUROLOGY`, `DENTISTRY`, `GENERAL` |
 | `ClinicStatus` | `ACTIVE`, `PAUSE`, `DELETE` |
+| `ClinicType` | `PRIVATE`, `PUBLIC` (required at `createClinic`; filter in `getClinics` and `getAllClinicsByAdmin`) |
 | `AppointmentStatus` | `CONFIRMED` (default), `COMPLETED`, `CANCELLED` |
 | `ArticleStatus` | `ACTIVE`, `DELETE` |
 | `CommentStatus` | `ACTIVE`, `BLOCK` (admin only), `DELETE` |
@@ -219,9 +220,9 @@ Removed: `MemberAuthType`, `Property*`, `BoardArticleCategory`.
 | Collection | Fields (besides `_id`, timestamps) |
 |---|---|
 | `members` | as the ERD; removed `memberProperties`, `memberAuthType`, `memberWarnings`, `memberBlocks` |
-| `clinics` | `clinicStatus`, `clinicName`, `clinicAddress`, `clinicDesc`, `clinicImage?`, `memberId` (owner, unique), `clinicLikes/Views/Comments/Rank` |
+| `clinics` | `clinicStatus`, `clinicType`, `clinicName`, `clinicAddress`, `clinicDesc`, `clinicImage?`, `memberId` (owner, unique), `clinicLikes/Views/Comments/Rank` |
 | `doctors` | `memberId` (unique), `clinicId`, `specialty`, `experience`, `doctorLikes/Views/Comments/Rank` |
-| `appointments` | `appointmentDate` (start of day), `appointmentTime` (`HH:mm`), `appointmentStatus`, `appointmentReason?`, `memberId` (patient), `doctorId`, `clinicId` (copied from the doctor). Partial unique index `{doctorId, appointmentDate, appointmentTime}` for CONFIRMED |
+| `appointments` | `appointmentDate` (send `"YYYY-MM-DD"`; stored as start of day), `appointmentTime` (`HH:mm`), `appointmentStatus`, `appointmentReason?`, `memberId` (patient), `doctorId`, `clinicId` (copied from the doctor). Partial unique index `{doctorId, appointmentDate, appointmentTime}` for CONFIRMED |
 | `articles` | renamed from `boardArticles`; `articleCategory` removed |
 | `notifications` | registered; `propertyId` removed, `appointmentId` added |
 | `comments`, `likes`, `views`, `follows` | unchanged shape, new group values |

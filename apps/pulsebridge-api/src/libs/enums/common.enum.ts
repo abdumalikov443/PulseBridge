@@ -27,6 +27,7 @@ export enum Message {
     NOT_DOCTOR = "You are not registered as a doctor!",
     DOCTOR_HAS_APPOINTMENTS = "Doctor has confirmed appointments, cancel them first!",
     SLOT_TAKEN = "This time slot is already booked!",
+    INVALID_APPOINTMENT_DATE = "Invalid appointment date, use YYYY-MM-DD!",
     PAST_APPOINTMENT = "Appointment time must be in the future!",
     SELF_APPOINTMENT_DENIED = "You cannot book an appointment with yourself!",
 }

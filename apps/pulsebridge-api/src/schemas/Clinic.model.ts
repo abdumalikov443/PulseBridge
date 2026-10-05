@@ -1,5 +1,5 @@
 import { Schema } from 'mongoose';
-import { ClinicStatus } from '../libs/enums/clinic.enum';
+import { ClinicStatus, ClinicType } from '../libs/enums/clinic.enum';
 
 const ClinicSchema = new Schema(
 	{
@@ -7,6 +7,12 @@ const ClinicSchema = new Schema(
 			type: String,
 			enum: ClinicStatus,
 			default: ClinicStatus.ACTIVE,
+		},
+
+		clinicType: {
+			type: String,
+			enum: ClinicType,
+			required: true,
 		},
 
 		clinicName: {

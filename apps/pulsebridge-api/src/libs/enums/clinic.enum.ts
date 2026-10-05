@@ -8,3 +8,11 @@ export enum ClinicStatus {
 registerEnumType(ClinicStatus, {
 	name: 'ClinicStatus',
 });
+
+export enum ClinicType {
+	PRIVATE = 'PRIVATE',
+	PUBLIC = 'PUBLIC',
+}
+registerEnumType(ClinicType, {
+	name: 'ClinicType',
+});

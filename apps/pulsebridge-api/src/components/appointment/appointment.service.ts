@@ -30,6 +30,7 @@ export class AppointmentService {
         const doctor = await this.doctorService.getDoctor(null as unknown as ObjectId, input.doctorId);
         if (String(doctor.memberId) === String(memberId)) throw new BadRequestException(Message.SELF_APPOINTMENT_DENIED);
 
+        if (!moment(input.appointmentDate).isValid()) throw new BadRequestException(Message.INVALID_APPOINTMENT_DATE);
         const day = moment(input.appointmentDate).startOf('day');
         const [hour, minute] = input.appointmentTime.split(':').map(Number);
         if (!day.clone().hour(hour).minute(minute).isAfter(moment())) {

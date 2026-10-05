@@ -1,6 +1,6 @@
 import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { ObjectId } from "mongoose";
-import { ClinicStatus } from "../../enums/clinic.enum";
+import { ClinicStatus, ClinicType } from "../../enums/clinic.enum";
 import { Member, TotalCounter } from "../member/member";
 import { MeLiked } from "../like/like";
 
@@ -12,6 +12,9 @@ export class Clinic {
 
     @Field(() => ClinicStatus)
     clinicStatus: ClinicStatus;
+
+    @Field(() => ClinicType)
+    clinicType: ClinicType;
 
     @Field(() => String)
     clinicName: string;

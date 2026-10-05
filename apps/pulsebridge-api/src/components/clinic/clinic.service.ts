@@ -94,8 +94,9 @@ export class ClinicService {
     }
 
     public async getClinics(memberId: ObjectId, input: ClinicsInquiry): Promise<Clinics> {
-        const { text } = input.search;
+        const { clinicType, text } = input.search;
         const match: T = { clinicStatus: ClinicStatus.ACTIVE };
+        if (clinicType) match.clinicType = clinicType;
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
 
         if (text) match.clinicName = { $regex: shapeIntoSearchRegex(text) };
@@ -166,11 +167,12 @@ export class ClinicService {
     /** ADMIN **/
 
     public async getAllClinicsByAdmin(input: AllClinicsInquiry): Promise<Clinics> {
-        const { clinicStatus, text } = input.search;
+        const { clinicStatus, clinicType, text } = input.search;
         const match: T = {};
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
 
         if (clinicStatus) match.clinicStatus = clinicStatus;
+        if (clinicType) match.clinicType = clinicType;
         if (text) match.clinicName = { $regex: shapeIntoSearchRegex(text) };
 
         const result = await this.clinicModel

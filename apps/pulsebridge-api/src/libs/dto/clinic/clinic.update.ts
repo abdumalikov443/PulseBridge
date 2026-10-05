@@ -1,7 +1,7 @@
 import { Field, InputType } from "@nestjs/graphql";
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
 import { ObjectId } from "mongoose";
-import { ClinicStatus } from "../../enums/clinic.enum";
+import { ClinicStatus, ClinicType } from "../../enums/clinic.enum";
 
 
 @InputType()
@@ -13,6 +13,10 @@ export class ClinicUpdate {
     @IsOptional()
     @Field(() => ClinicStatus, {nullable: true})
     clinicStatus?: ClinicStatus;
+
+    @IsOptional()
+    @Field(() => ClinicType, {nullable: true})
+    clinicType?: ClinicType;
 
     @IsOptional()
     @Length(3, 100)

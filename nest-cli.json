@@ -5,7 +5,13 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "webpack": true,
-    "tsConfigPath": "apps/pulsebridge-api/tsconfig.app.json"
+    "tsConfigPath": "apps/pulsebridge-api/tsconfig.app.json",
+    "assets": [
+      {
+        "include": "assets/**/*",
+        "outDir": "dist/apps/pulsebridge-api"
+      }
+    ]
   },
   "monorepo": true,
   "root": "apps/pulsebridge-api",

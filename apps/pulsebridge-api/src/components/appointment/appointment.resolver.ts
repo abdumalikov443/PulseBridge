@@ -12,6 +12,7 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import { AuthMember } from '../auth/decorators/authMember.decorator';
 import { shapeIntoMongoObjectId } from '../../libs/config';
 import { DayAvailability } from '../../libs/dto/appointment/availability';
+import { Member } from '../../libs/dto/member/member';
 
 @Resolver()
 export class AppointmentResolver {
@@ -23,6 +24,18 @@ export class AppointmentResolver {
         console.log("Query: getDoctorAvailability");
         const doctorId = shapeIntoMongoObjectId(input);
         return await this.appointmentService.getDoctorAvailability(doctorId);
+    }
+
+    // confirmation page: its patient, doctor, clinic owner or ADMIN
+    @UseGuards(AuthGuard)
+    @Query((returns) => Appointment)
+    public async getAppointment(
+        @Args('appointmentId') input: string,
+        @AuthMember() authMember: Member
+    ): Promise<Appointment> {
+        console.log("Query: getAppointment");
+        const appointmentId = shapeIntoMongoObjectId(input);
+        return await this.appointmentService.getAppointment(authMember, appointmentId);
     }
 
     @Roles(MemberType.PATIENT)

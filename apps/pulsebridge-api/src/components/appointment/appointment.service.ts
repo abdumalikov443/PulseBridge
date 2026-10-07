@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, ObjectId } from 'mongoose';
+import { Model, ObjectId, PipelineStage } from 'mongoose';
 import moment from 'moment';
 import { Appointment, Appointments } from '../../libs/dto/appointment/appointment';
 import { AppointmentInput, AppointmentsInquiry } from '../../libs/dto/appointment/appointment.input';
@@ -16,6 +16,7 @@ import { ClinicService } from '../clinic/clinic.service';
 import { NotificationService } from '../notification/notification.service';
 import { AppointmentActor, canChangeAppointmentStatus } from './appointment.policy';
 import { DayAvailability } from '../../libs/dto/appointment/availability';
+import { Member } from '../../libs/dto/member/member';
 import { getBookableDates, getScheduleSlots, getWeekDay, isOpenDay, withScheduleDefaults } from '../../libs/schedule';
 
 @Injectable()
@@ -178,6 +179,41 @@ export class AppointmentService {
         return await this.getAppointmentList(match, input);
     }
 
+    // one appointment with patient, doctor and clinic data; only its patient, doctor, clinic owner or ADMIN
+    public async getAppointment(authMember: Member, appointmentId: ObjectId): Promise<Appointment> {
+        const result = await this.appointmentModel
+            .aggregate([{ $match: { _id: appointmentId } }, ...this.appointmentDataStages()])
+            .exec();
+        const appointment: Appointment = result[0];
+        if (!appointment) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
+
+        const me = String(authMember._id);
+        const allowed = authMember.memberType === MemberType.ADMIN
+            || String(appointment.memberId) === me
+            || String(appointment.doctorData?.memberId) === me
+            || String(appointment.clinicData?.memberId) === me;
+        if (!allowed) throw new ForbiddenException(Message.NOT_ALLOWED_REQUEST);
+        return appointment;
+    }
+
+    // data for the downloadable document; a cancelled appointment has none
+    public async getAppointmentDocument(authMember: Member, appointmentId: ObjectId): Promise<Appointment> {
+        const appointment = await this.getAppointment(authMember, appointmentId);
+        if (appointment.appointmentStatus === AppointmentStatus.CANCELLED) throw new BadRequestException(Message.APPOINTMENT_CANCELLED);
+        return appointment;
+    }
+
+    private appointmentDataStages(): PipelineStage.FacetPipelineStage[] {
+        return [
+            lookupMember,
+            { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
+            lookupDoctor,
+            { $unwind: { path: '$doctorData', preserveNullAndEmptyArrays: true } },
+            lookupClinic,
+            { $unwind: { path: '$clinicData', preserveNullAndEmptyArrays: true } },
+        ];
+    }
+
     private async getAppointmentList(match: T, input: AppointmentsInquiry): Promise<Appointments> {
         if (input.search?.appointmentStatus) match.appointmentStatus = input.search.appointmentStatus;
         const sort: T = { [input?.sort ?? 'appointmentDate'] : input?.direction ?? Direction.DESC };
@@ -191,12 +227,7 @@ export class AppointmentService {
                         list: [
                             { $skip: (input.page - 1) * input.limit },
                             { $limit: input.limit },
-                            lookupMember,
-                            { $unwind: { path: '$memberData', preserveNullAndEmptyArrays: true } },
-                            lookupDoctor,
-                            { $unwind: { path: '$doctorData', preserveNullAndEmptyArrays: true } },
-                            lookupClinic,
-                            { $unwind: { path: '$clinicData', preserveNullAndEmptyArrays: true } },
+                            ...this.appointmentDataStages(),
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

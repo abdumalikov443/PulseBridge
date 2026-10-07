@@ -30,6 +30,8 @@ export enum Message {
     FIRST_ACCOUNT_ADMIN = "The first account becomes the platform ADMIN, sign it up without a profile!",
     CLINIC_HAS_APPOINTMENTS = "Clinic has confirmed appointments, cancel them first!",
     DOCTOR_HAS_APPOINTMENTS = "Doctor has confirmed appointments, cancel them first!",
+    INVALID_CLINIC_SCHEDULE = "Invalid working hours: open < close, break inside the hours, at least one working day!",
+    NOT_IN_SCHEDULE = "This time is not in the doctor's schedule (30-minute slots, working hours, next 5 days from tomorrow)!",
     SLOT_TAKEN = "This time slot is already booked!",
     INVALID_APPOINTMENT_DATE = "Invalid appointment date, use YYYY-MM-DD!",
     PAST_APPOINTMENT = "Appointment time must be in the future!",

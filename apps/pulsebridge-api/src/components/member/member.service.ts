@@ -11,6 +11,7 @@ import { StatisticModifier, T } from '../../libs/types/common';
 import { shapeIntoSearchRegex } from '../../libs/config';
 import { Doctor } from '../../libs/dto/doctor/doctor';
 import { Clinic } from '../../libs/dto/clinic/clinic';
+import { isValidSchedule, withScheduleDefaults } from '../../libs/schedule';
 
 @Injectable()
 export class MemberService {
@@ -45,6 +46,7 @@ export class MemberService {
             : memberType === MemberType.CLINIC ? !!clinicProfile && !doctorProfile
             : !doctorProfile && !clinicProfile;
         if (!profileMatches) throw new BadRequestException(Message.PROFILE_MISMATCH);
+        if (clinicProfile && !isValidSchedule(withScheduleDefaults(clinicProfile))) throw new BadRequestException(Message.INVALID_CLINIC_SCHEDULE);
 
         const result = await this.createMember({ memberNick, memberPhone, memberPassword, memberType }) as Member;
 

@@ -15,6 +15,8 @@ import { DoctorService } from '../doctor/doctor.service';
 import { ClinicService } from '../clinic/clinic.service';
 import { NotificationService } from '../notification/notification.service';
 import { AppointmentActor, canChangeAppointmentStatus } from './appointment.policy';
+import { DayAvailability } from '../../libs/dto/appointment/availability';
+import { getBookableDates, getScheduleSlots, getWeekDay, isOpenDay, withScheduleDefaults } from '../../libs/schedule';
 
 @Injectable()
 export class AppointmentService {
@@ -24,6 +26,34 @@ export class AppointmentService {
         private clinicService: ClinicService,
         private notificationService: NotificationService,
     ) {}
+
+    // next 5 days from tomorrow: 30-minute slots of the doctor's clinic, booked ones marked unavailable
+    public async getDoctorAvailability(doctorId: ObjectId): Promise<DayAvailability[]> {
+        const doctor = await this.doctorService.getDoctor(null as unknown as ObjectId, doctorId);
+        const schedule = withScheduleDefaults(doctor.clinicData);
+        const dates = getBookableDates();
+
+        const booked = await this.appointmentModel
+            .find({
+                doctorId: doctorId,
+                appointmentStatus: AppointmentStatus.CONFIRMED,
+                appointmentDate: { $in: dates.map((date) => moment.utc(date, 'YYYY-MM-DD').toDate()) },
+            })
+            .select({ appointmentDate: 1, appointmentTime: 1 })
+            .lean()
+            .exec();
+        const taken = new Set(booked.map((a) => `${moment.utc(a.appointmentDate).format('YYYY-MM-DD')} ${a.appointmentTime}`));
+
+        return dates.map((date) => {
+            const isOpen = isOpenDay(schedule, date);
+            return {
+                date: date,
+                dayOfWeek: getWeekDay(date),
+                isOpen: isOpen,
+                slots: isOpen ? getScheduleSlots(schedule).map((time) => ({ time: time, available: !taken.has(`${date} ${time}`) })) : [],
+            };
+        });
+    }
 
     public async createAppointment(memberId: ObjectId, input: AppointmentInput): Promise<Appointment> {
         // only active doctors in active clinics can be booked
@@ -37,6 +67,12 @@ export class AppointmentService {
         if (zonedTimeToDate(input.appointmentDate, input.appointmentTime, getAppTimezone()) <= new Date()) {
             throw new BadRequestException(Message.PAST_APPOINTMENT);
         }
+        // a 30-minute slot of the clinic's working hours, on a working day in the next 5 days from tomorrow
+        const schedule = withScheduleDefaults(doctor.clinicData);
+        const inSchedule = getBookableDates().includes(input.appointmentDate)
+            && isOpenDay(schedule, input.appointmentDate)
+            && getScheduleSlots(schedule).includes(input.appointmentTime);
+        if (!inSchedule) throw new BadRequestException(Message.NOT_IN_SCHEDULE);
 
         const slot = {
             doctorId: input.doctorId,

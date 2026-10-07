@@ -1,5 +1,5 @@
 import { Schema } from 'mongoose';
-import { ClinicStatus, ClinicType } from '../libs/enums/clinic.enum';
+import { ClinicStatus, ClinicType, WeekDay } from '../libs/enums/clinic.enum';
 
 const ClinicSchema = new Schema(
 	{
@@ -32,6 +32,33 @@ const ClinicSchema = new Schema(
 
 		clinicImage: {
 			type: String,
+		},
+
+		// working hours "HH:mm" (half hours) in the platform timezone; doctors work on this schedule
+		clinicOpenTime: {
+			type: String,
+			default: '09:00',
+		},
+
+		clinicCloseTime: {
+			type: String,
+			default: '18:00',
+		},
+
+		clinicBreakStart: {
+			type: String,
+			default: null,
+		},
+
+		clinicBreakEnd: {
+			type: String,
+			default: null,
+		},
+
+		clinicOffDays: {
+			type: [String],
+			enum: WeekDay,
+			default: [],
 		},
 
 		clinicViews: {

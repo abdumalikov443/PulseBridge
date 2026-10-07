@@ -1,6 +1,6 @@
 import { Field, Int, ObjectType } from "@nestjs/graphql";
 import { ObjectId } from "mongoose";
-import { ClinicStatus, ClinicType } from "../../enums/clinic.enum";
+import { ClinicStatus, ClinicType, WeekDay } from "../../enums/clinic.enum";
 import { Member, TotalCounter } from "../member/member";
 import { MeLiked } from "../like/like";
 import { MeFollowed } from "../follow/me-followed";
@@ -28,6 +28,21 @@ export class Clinic {
 
     @Field(() => String, {nullable: true})
     clinicImage?: string;
+
+    @Field(() => String)
+    clinicOpenTime: string;
+
+    @Field(() => String)
+    clinicCloseTime: string;
+
+    @Field(() => String, {nullable: true})
+    clinicBreakStart?: string | null;
+
+    @Field(() => String, {nullable: true})
+    clinicBreakEnd?: string | null;
+
+    @Field(() => [WeekDay])
+    clinicOffDays: WeekDay[];
 
     @Field(() => Int)
     clinicViews: number;

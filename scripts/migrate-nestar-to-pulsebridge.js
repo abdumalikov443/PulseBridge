@@ -15,6 +15,7 @@
  *   doctors        old doctorStatus: PENDING -> clinicJoinRequests, REJECTED -> no clinic, field removed;
  *                  DOCTOR members without a profile get one (GENERAL, 0 years, no clinic)
  *   clinics        clinicDoctors counted where missing; CLINIC members without a clinic are only listed
+ *   clinics        working hours 09:00-18:00 where missing
  *   follows        member->member follows become DOCTOR/CLINIC profile follows (others deleted),
  *                  old followingId index dropped, follower counters recalculated
  *   properties     collection dropped
@@ -86,6 +87,14 @@ async function main() {
 		clinics.updateMany({ clinicType: { $exists: false } }, { $set: { clinicType: 'PRIVATE' } }),
 	);
 
+	// clinics created before working hours existed: default 09:00-18:00, no break, no days off
+	await step('clinics without working hours set to 09:00-18:00', await clinics.countDocuments({ clinicOpenTime: { $exists: false } }), () =>
+		clinics.updateMany(
+			{ clinicOpenTime: { $exists: false } },
+			{ $set: { clinicOpenTime: '09:00', clinicCloseTime: '18:00', clinicBreakStart: null, clinicBreakEnd: null, clinicOffDays: [] } },
+		),
+	);
+
 	// previous design kept the join request in doctors.doctorStatus -> clinicId + clinicJoinRequests
 	const doctors = db.collection('doctors');
 	const requests = db.collection('clinicJoinRequests');
@@ -127,20 +136,23 @@ async function main() {
 
 	// follows: member -> member (followingId) becomes member -> DOCTOR / CLINIC profile (followGroup, followRefId)
 	const follows = db.collection('follows');
+	// drop the old unique index first: it treats a missing followingId as null, so converting
+	// a follow of a member who already has a new-format follow would be a duplicate key
+	const followIndexes = (await hasCollection(db, 'follows')) ? await follows.indexes() : [];
+	const oldIndex = followIndexes.find((i) => i.key.followingId !== undefined);
+	if (oldIndex) await step(`follows old index ${oldIndex.name} dropped`, 1, () => follows.dropIndex(oldIndex.name));
 	const oldFollows = await follows.find({ followingId: { $exists: true } }).toArray();
-	await step('old member follows moved to doctor/clinic profiles (others deleted)', oldFollows.length, async () => {
+	await step('old member follows moved to doctor/clinic profiles (others and duplicates deleted)', oldFollows.length, async () => {
 		for (const f of oldFollows) {
 			const doctor = await doctors.findOne({ memberId: f.followingId });
 			const clinic = doctor ? null : await clinics.findOne({ memberId: f.followingId });
 			const target = doctor ? { followGroup: 'DOCTOR', followRefId: doctor._id } : clinic ? { followGroup: 'CLINIC', followRefId: clinic._id } : null;
-			if (target) await follows.updateOne({ _id: f._id }, { $set: target, $unset: { followingId: '' } });
+			// the member may already follow the same profile in the new format
+			const duplicate = target && (await follows.findOne({ followerId: f.followerId, followRefId: target.followRefId }));
+			if (target && !duplicate) await follows.updateOne({ _id: f._id }, { $set: target, $unset: { followingId: '' } });
 			else await follows.deleteOne({ _id: f._id });
 		}
 	});
-	// the old unique index treats the missing followingId as null and would block new follows
-	const followIndexes = (await hasCollection(db, 'follows')) ? await follows.indexes() : [];
-	const oldIndex = followIndexes.find((i) => i.key.followingId !== undefined);
-	if (oldIndex) await step(`follows old index ${oldIndex.name} dropped`, 1, () => follows.dropIndex(oldIndex.name));
 	await step('follow counters recalculated', await follows.countDocuments(), async () => {
 		await doctors.updateMany({}, { $set: { doctorFollowers: 0 } });
 		await clinics.updateMany({}, { $set: { clinicFollowers: 0 } });

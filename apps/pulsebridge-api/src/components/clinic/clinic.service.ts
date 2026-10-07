@@ -21,6 +21,7 @@ import { Doctor } from "../../libs/dto/doctor/doctor";
 import { ClinicJoinRequest } from "../../libs/dto/doctor/join-request";
 import { JoinRequestStatus } from "../../libs/enums/doctor.enum";
 import { AppointmentStatus } from "../../libs/enums/appointment.enum";
+import { isValidSchedule, withScheduleDefaults } from "../../libs/schedule";
 
 @Injectable()
 export class ClinicService {
@@ -88,10 +89,15 @@ export class ClinicService {
     // DELETE: blocked while appointments are confirmed; afterwards the clinic's doctors are released
     private async saveClinicUpdate(search: T, input: ClinicUpdate): Promise<Clinic> {
         const deleting = input.clinicStatus === ClinicStatus.DELETE;
-        if (deleting) {
-            const target = await this.clinicModel.findOne(search).exec();
+        const scheduleKeys = ['clinicOpenTime', 'clinicCloseTime', 'clinicBreakStart', 'clinicBreakEnd', 'clinicOffDays'];
+        const changesSchedule = scheduleKeys.some((key) => input[key] !== undefined);
+        if (deleting || changesSchedule) {
+            const target = await this.clinicModel.findOne(search).lean().exec();
             if (!target) throw new InternalServerErrorException(Message.UPDATE_FAILED);
-            await this.checkNoConfirmedAppointments(target._id);
+            if (deleting) await this.checkNoConfirmedAppointments(target._id);
+            // the new values together with the current schedule must still be valid
+            const schedule = { ...withScheduleDefaults(target as T), ...Object.fromEntries(scheduleKeys.filter((key) => input[key] !== undefined).map((key) => [key, input[key]])) };
+            if (changesSchedule && !isValidSchedule(schedule)) throw new BadRequestException(Message.INVALID_CLINIC_SCHEDULE);
         }
 
         const result = await this.clinicModel

@@ -11,10 +11,19 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { AuthMember } from '../auth/decorators/authMember.decorator';
 import { shapeIntoMongoObjectId } from '../../libs/config';
+import { DayAvailability } from '../../libs/dto/appointment/availability';
 
 @Resolver()
 export class AppointmentResolver {
     constructor(private readonly appointmentService: AppointmentService) {}
+
+    // free / booked 30-minute slots of a doctor for the next 5 days (from tomorrow); no login needed
+    @Query((returns) => [DayAvailability])
+    public async getDoctorAvailability(@Args('doctorId') input: string): Promise<DayAvailability[]> {
+        console.log("Query: getDoctorAvailability");
+        const doctorId = shapeIntoMongoObjectId(input);
+        return await this.appointmentService.getDoctorAvailability(doctorId);
+    }
 
     @Roles(MemberType.PATIENT)
     @UseGuards(RolesGuard)

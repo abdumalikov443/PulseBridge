@@ -12,20 +12,23 @@ import { MemberType } from '../../libs/enums/member.enum';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ArticleUpdate } from '../../libs/dto/article/article.update';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Member } from '../../libs/dto/member/member';
 
 @Resolver()
 export class ArticleResolver {
     constructor(private readonly articleService: ArticleService) {}
 
 
-    @UseGuards(AuthGuard)
+    // doctors working in a clinic and active clinics write articles (not patients, not admin)
+    @Roles(MemberType.DOCTOR, MemberType.CLINIC)
+    @UseGuards(RolesGuard)
     @Mutation((returns) => Article)
     public async createArticle(
         @Args("input") input: ArticleInput,
-        @AuthMember('_id') memberId: ObjectId
+        @AuthMember() authMember: Member
     ): Promise<Article> {
         console.log("Mutation: createArticle");
-        return await this.articleService.createArticle(memberId, input);
+        return await this.articleService.createArticle(authMember, input);
     }
 
     @UseGuards(WithoutGuard)

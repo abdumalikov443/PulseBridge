@@ -33,6 +33,8 @@ export enum Message {
     INVALID_CLINIC_SCHEDULE = "Invalid working hours: open < close, break inside the hours, at least one working day!",
     NOT_IN_SCHEDULE = "This time is not in the doctor's schedule (30-minute slots, working hours, next 5 days from tomorrow)!",
     APPOINTMENT_CANCELLED = "A cancelled appointment has no document!",
+    ONLY_CLINIC_DOCTORS_WRITE = "Only doctors working in a clinic can write articles!",
+    ONLY_ACTIVE_CLINICS_WRITE = "Only active clinics can write articles!",
     SLOT_TAKEN = "This time slot is already booked!",
     INVALID_APPOINTMENT_DATE = "Invalid appointment date, use YYYY-MM-DD!",
     PAST_APPOINTMENT = "Appointment time must be in the future!",

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Article, Articles } from '../../libs/dto/article/article';
@@ -16,19 +16,25 @@ import { LikeGroup } from '../../libs/enums/like.enum';
 import { LikeService } from '../like/like.service';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationGroup, NotificationType } from '../../libs/enums/notification.enum';
+import { Member } from '../../libs/dto/member/member';
+import { MemberType } from '../../libs/enums/member.enum';
+import { ClinicStatus } from '../../libs/enums/clinic.enum';
 
 @Injectable()
 export class ArticleService {
     constructor (
         @InjectModel("Article") private readonly articleModel: Model<Article>,
+        @InjectModel("Doctor") private readonly doctorModel: Model<any>,
+        @InjectModel("Clinic") private readonly clinicModel: Model<any>,
         private memberService: MemberService,
         private viewService: ViewService,
         private likeService: LikeService,
         private notificationService: NotificationService
     ) {}
 
-    public async createArticle(memberId: ObjectId, input: ArticleInput): Promise<Article> {
-        input.memberId = memberId;
+    public async createArticle(authMember: Member, input: ArticleInput): Promise<Article> {
+        await this.checkCanWrite(authMember);
+        input.memberId = authMember._id;
         try {
             const result = await this.articleModel.create(input);
 
@@ -41,6 +47,19 @@ export class ArticleService {
         } catch (err) {
             console.log("Error, Service.model: ", err.message);
             throw new BadRequestException(Message.CREATE_FAILED);
+        }
+    }
+
+    // DOCTOR: only while working in a clinic; CLINIC: only with an active clinic
+    private async checkCanWrite(authMember: Member): Promise<void> {
+        if (authMember.memberType === MemberType.DOCTOR) {
+            const working = await this.doctorModel.exists({ memberId: authMember._id, clinicId: { $ne: null } }).exec();
+            if (!working) throw new ForbiddenException(Message.ONLY_CLINIC_DOCTORS_WRITE);
+        } else if (authMember.memberType === MemberType.CLINIC) {
+            const active = await this.clinicModel.exists({ memberId: authMember._id, clinicStatus: ClinicStatus.ACTIVE }).exec();
+            if (!active) throw new ForbiddenException(Message.ONLY_ACTIVE_CLINICS_WRITE);
+        } else {
+            throw new ForbiddenException(Message.ONLY_SPECIFIC_ROLES_ALLOWED);
         }
     }
 

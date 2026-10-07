@@ -1,20 +1,30 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, Min } from 'class-validator';
+import { IsNotEmpty, Min } from 'class-validator';
 import { ObjectId } from 'mongoose';
+import { FollowGroup } from '../../enums/follow.enum';
 
+// subscribe / unsubscribe target: doctors._id or clinics._id
 @InputType()
-class FollowSearch {
-	@IsOptional()
-	@Field(() => String, { nullable: true })
-	followingId?: ObjectId;
+export class FollowInput {
+	@IsNotEmpty()
+	@Field(() => FollowGroup)
+	followGroup: FollowGroup;
 
-	@IsOptional()
-	@Field(() => String, { nullable: true })
-	followerId?: ObjectId;
+	@IsNotEmpty()
+	@Field(() => String)
+	refId: ObjectId;
 }
 
 @InputType()
-export class FollowInquiry {
+class FISearch {
+	@IsNotEmpty()
+	@Field(() => String)
+	followerId: ObjectId;
+}
+
+// what a member follows
+@InputType()
+export class FollowingsInquiry {
 	@IsNotEmpty()
 	@Min(1)
 	@Field(() => Int)
@@ -26,6 +36,24 @@ export class FollowInquiry {
 	limit: number;
 
 	@IsNotEmpty()
-	@Field(() => FollowSearch)
-	search: FollowSearch;
+	@Field(() => FISearch)
+	search: FISearch;
+}
+
+// who follows a doctor / clinic
+@InputType()
+export class FollowersInquiry {
+	@IsNotEmpty()
+	@Min(1)
+	@Field(() => Int)
+	page: number;
+
+	@IsNotEmpty()
+	@Min(1)
+	@Field(() => Int)
+	limit: number;
+
+	@IsNotEmpty()
+	@Field(() => FollowInput)
+	search: FollowInput;
 }

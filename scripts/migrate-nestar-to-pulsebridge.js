@@ -15,6 +15,8 @@
  *   doctors        old doctorStatus: PENDING -> clinicJoinRequests, REJECTED -> no clinic, field removed;
  *                  DOCTOR members without a profile get one (GENERAL, 0 years, no clinic)
  *   clinics        clinicDoctors counted where missing; CLINIC members without a clinic are only listed
+ *   follows        member->member follows become DOCTOR/CLINIC profile follows (others deleted),
+ *                  old followingId index dropped, follower counters recalculated
  *   properties     collection dropped
  */
 require('dotenv').config();
@@ -122,6 +124,35 @@ async function main() {
 			clinics.updateOne({ _id: c._id }, { $set: { clinicDoctors: await doctors.countDocuments({ clinicId: c._id }) } }),
 		)),
 	);
+
+	// follows: member -> member (followingId) becomes member -> DOCTOR / CLINIC profile (followGroup, followRefId)
+	const follows = db.collection('follows');
+	const oldFollows = await follows.find({ followingId: { $exists: true } }).toArray();
+	await step('old member follows moved to doctor/clinic profiles (others deleted)', oldFollows.length, async () => {
+		for (const f of oldFollows) {
+			const doctor = await doctors.findOne({ memberId: f.followingId });
+			const clinic = doctor ? null : await clinics.findOne({ memberId: f.followingId });
+			const target = doctor ? { followGroup: 'DOCTOR', followRefId: doctor._id } : clinic ? { followGroup: 'CLINIC', followRefId: clinic._id } : null;
+			if (target) await follows.updateOne({ _id: f._id }, { $set: target, $unset: { followingId: '' } });
+			else await follows.deleteOne({ _id: f._id });
+		}
+	});
+	// the old unique index treats the missing followingId as null and would block new follows
+	const followIndexes = (await hasCollection(db, 'follows')) ? await follows.indexes() : [];
+	const oldIndex = followIndexes.find((i) => i.key.followingId !== undefined);
+	if (oldIndex) await step(`follows old index ${oldIndex.name} dropped`, 1, () => follows.dropIndex(oldIndex.name));
+	await step('follow counters recalculated', await follows.countDocuments(), async () => {
+		await doctors.updateMany({}, { $set: { doctorFollowers: 0 } });
+		await clinics.updateMany({}, { $set: { clinicFollowers: 0 } });
+		await members.updateMany({}, { $set: { memberFollowers: 0, memberFollowings: 0 } });
+		for (const g of await follows.aggregate([{ $group: { _id: { group: '$followGroup', ref: '$followRefId' }, n: { $sum: 1 } } }]).toArray()) {
+			const col = g._id.group === 'DOCTOR' ? doctors : clinics;
+			await col.updateOne({ _id: g._id.ref }, { $set: { [g._id.group === 'DOCTOR' ? 'doctorFollowers' : 'clinicFollowers']: g.n } });
+		}
+		for (const g of await follows.aggregate([{ $group: { _id: '$followerId', n: { $sum: 1 } } }]).toArray()) {
+			await members.updateOne({ _id: g._id }, { $set: { memberFollowings: g.n } });
+		}
+	}, true);
 
 	if (await hasCollection(db, 'properties')) {
 		await step('properties collection dropped', await db.collection('properties').countDocuments(), () =>

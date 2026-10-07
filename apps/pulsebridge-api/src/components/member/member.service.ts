@@ -8,7 +8,6 @@ import { Direction, Message } from '../../libs/enums/common.enum';
 import { AuthService } from '../auth/auth.service';
 import { MemberUpdate } from '../../libs/dto/member/member.update';
 import { StatisticModifier, T } from '../../libs/types/common';
-import { Follower, Following, MeFollowed } from '../../libs/dto/follow/follow';
 import { shapeIntoSearchRegex } from '../../libs/config';
 import { Doctor } from '../../libs/dto/doctor/doctor';
 import { Clinic } from '../../libs/dto/clinic/clinic';
@@ -18,7 +17,6 @@ export class MemberService {
 
     constructor(
         @InjectModel("Member") private readonly memberModel: Model<Member>,
-        @InjectModel("Follow") private readonly followModel: Model<Follower | Following>,
         @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
         @InjectModel("Clinic") private readonly clinicModel: Model<Clinic>,
         private authService: AuthService,
@@ -114,18 +112,8 @@ export class MemberService {
         };
         const targetMember = await this.memberModel.findOne(search).lean().exec();
         if (!targetMember) throw new InternalServerErrorException(Message.NO_DATA_FOUND);
-
-        if (memberId) {
-            //@ts-ignore
-            targetMember.meFollowed = await this.checkSubscription(memberId, targetId);
-        }
-
-        return targetMember;
-    }
-    
-    private async checkSubscription(followerId: ObjectId, followingId: ObjectId): Promise<MeFollowed[]> {
-        const result = await this.followModel.findOne({ followingId: followingId, followerId: followerId}).exec();
-        return result ? [{followerId: followerId, followingId: followingId, myFollowing: true}] : [];
+        // members are not followed (doctors / clinics are), so there is no meFollowed here
+        return targetMember as unknown as Member;
     }
 
     public async getAllMembersByAdmin(input: MembersInquiry): Promise<Members> {

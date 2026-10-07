@@ -55,6 +55,11 @@ const ClinicSchema = new Schema(
 			default: 0,
 		},
 
+		clinicFollowers: {
+			type: Number,
+			default: 0,
+		},
+
 		clinicRank: {
 			type: Number,
 			default: 0,

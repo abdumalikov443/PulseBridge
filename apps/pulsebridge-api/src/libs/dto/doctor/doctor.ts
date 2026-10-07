@@ -3,6 +3,7 @@ import { ObjectId } from "mongoose";
 import { DoctorSpecialty } from "../../enums/doctor.enum";
 import { Member, TotalCounter } from "../member/member";
 import { MeLiked } from "../like/like";
+import { MeFollowed } from "../follow/me-followed";
 import { Clinic } from "../clinic/clinic";
 
 
@@ -34,6 +35,9 @@ export class Doctor {
     doctorComments: number;
 
     @Field(() => Int)
+    doctorFollowers: number;
+
+    @Field(() => Int)
     doctorRank: number;
 
     @Field(() => Date)
@@ -46,6 +50,9 @@ export class Doctor {
 
     @Field(() => [MeLiked], {nullable: true})
     meLiked?: MeLiked[];
+
+    @Field(() => [MeFollowed], {nullable: true})
+    meFollowed?: MeFollowed[];
 
     @Field(() => Member, {nullable: true})
     memberData?: Member;

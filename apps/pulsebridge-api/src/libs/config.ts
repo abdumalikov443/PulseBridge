@@ -6,8 +6,8 @@ import { pipeline } from "stream";
 
 
 export const availableMemberSorts = ["createdAt", "updatedAt", "memberLikes", "memberViews"];
-export const availableClinicSorts = ["createdAt", "updatedAt", "clinicLikes", "clinicViews", "clinicRank", "clinicDoctors"];
-export const availableDoctorSorts = ["createdAt", "updatedAt", "doctorLikes", "doctorViews", "doctorRank", "experience"];
+export const availableClinicSorts = ["createdAt", "updatedAt", "clinicLikes", "clinicViews", "clinicRank", "clinicDoctors", "clinicFollowers"];
+export const availableDoctorSorts = ["createdAt", "updatedAt", "doctorLikes", "doctorViews", "doctorRank", "experience", "doctorFollowers"];
 export const availableAppointmentSorts = ["createdAt", "updatedAt", "appointmentDate"];
 export const availableArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 'articleViews'];
 export const availableCommentSorts = ['createdAt', 'updatedAt'];
@@ -85,43 +85,6 @@ export const lookupAuthMemberLiked = (memerId: T, targetRefId: string = "$_id") 
 };
 
 
-interface lookupAuthMemberFollowed {
-	followerId: T;
-	followingId: string;
-}
-
-export const lookupAuthMemberFollowed = (input: lookupAuthMemberFollowed) => {
-	const { followerId, followingId } = input;
-	return {
-		$lookup: {
-			from: "follows",
-			let: {
-				localFollowerId: followerId,
-				localFollowingId: followingId,
-				localMyFavorite: true
-			},
-			pipeline: [ 
-				{
-					$match: {
-						$expr: { 
-							$and: [{$eq: ["$followerId", "$$localFollowerId"]}, {$eq: ["$followingId", "$$localFollowingId"]}]
-						},
-					},
-				},
-				{
-					$project: {
-						_id: 0, 
-						followerId: 1,
-						followingId: 1,
-						myFollowing: "$$localMyFavorite",
-					},
-				},
-			],
-			as: "meFollowed",
-		},
-	};
-};
-
 export const lookupMember = {
 	$lookup: {
 		from: 'members',
@@ -131,12 +94,55 @@ export const lookupMember = {
 	},
 };
 
-export const lookupFollowingData = {
+// does the viewer (followerId) follow the doctor / clinic with this id
+export const lookupAuthMemberFollowed = (followerId: T, followRefId: string = "$_id") => {
+	return {
+		$lookup: {
+			from: "follows",
+			let: {
+				localFollowerId: followerId,
+				localFollowRefId: followRefId,
+				localMyFollowing: true
+			},
+			pipeline: [
+				{
+					$match: {
+						$expr: {
+							$and: [{$eq: ["$followerId", "$$localFollowerId"]}, {$eq: ["$followRefId", "$$localFollowRefId"]}]
+						},
+					},
+				},
+				{
+					$project: {
+						_id: 0,
+						followerId: 1,
+						followRefId: 1,
+						myFollowing: "$$localMyFollowing",
+					},
+				},
+			],
+			as: "meFollowed",
+		},
+	};
+};
+
+// followed doctor (with its member) / clinic; only one of them matches a follow
+export const lookupFollowedDoctor = {
 	$lookup: {
-		from: 'members',
-		localField: 'followingId',
+		from: 'doctors',
+		localField: 'followRefId',
 		foreignField: '_id',
-		as: 'followingData'
+		as: 'doctorData',
+		pipeline: [lookupMember, { $unwind: '$memberData' }],
+	},
+};
+
+export const lookupFollowedClinic = {
+	$lookup: {
+		from: 'clinics',
+		localField: 'followRefId',
+		foreignField: '_id',
+		as: 'clinicData',
 	},
 };
 

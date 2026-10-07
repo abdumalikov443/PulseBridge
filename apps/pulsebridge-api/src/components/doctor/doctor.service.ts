@@ -15,7 +15,7 @@ import { AppointmentStatus } from "../../libs/enums/appointment.enum";
 import { ViewGroup } from "../../libs/enums/view.enum";
 import { LikeGroup } from "../../libs/enums/like.enum";
 import { StatisticModifier, T } from "../../libs/types/common";
-import { lookupAuthMemberLiked, lookupClinic, lookupDoctor, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from "../../libs/config";
+import { lookupAuthMemberFollowed, lookupAuthMemberLiked, lookupClinic, lookupDoctor, lookupMember, shapeIntoMongoObjectId, shapeIntoSearchRegex } from "../../libs/config";
 import { ClinicService } from "../clinic/clinic.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
@@ -28,6 +28,7 @@ export class DoctorService {
         @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
         @InjectModel("ClinicJoinRequest") private readonly requestModel: Model<ClinicJoinRequest>,
         @InjectModel("Appointment") private readonly appointmentModel: Model<any>,
+        @InjectModel("Follow") private readonly followModel: Model<any>,
         private clinicService: ClinicService,
         private viewService: ViewService,
         private likeService: LikeService,
@@ -170,6 +171,8 @@ export class DoctorService {
             }
             const likeInput = { memberId: memberId, likeRefId: doctorId, likeGroup: LikeGroup.DOCTOR };
             targetDoctor.meLiked = await this.likeService.checkLikeExistence(likeInput);
+            const followed = await this.followModel.exists({ followerId: memberId, followRefId: doctorId }).exec();
+            targetDoctor.meFollowed = followed ? [{ followerId: memberId, followRefId: doctorId, myFollowing: true }] : [];
         }
         return targetDoctor;
     }
@@ -231,6 +234,7 @@ export class DoctorService {
                             { $skip: (input.page - 1) * input.limit },
                             { $limit: input.limit },
                             lookupAuthMemberLiked(memberId),
+                            lookupAuthMemberFollowed(memberId),
                         ],
                         metaCounter: [{ $count: 'total' }],
                     },

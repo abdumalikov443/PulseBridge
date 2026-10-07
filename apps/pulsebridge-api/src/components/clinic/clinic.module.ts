@@ -11,6 +11,7 @@ import { NotificationModule } from '../notification/notification.module';
 import DoctorSchema from '../../schemas/Doctor.model';
 import ClinicJoinRequestSchema from '../../schemas/ClinicJoinRequest.model';
 import AppointmentSchema from '../../schemas/Appointment.model';
+import FollowSchema from '../../schemas/Follow.model';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import AppointmentSchema from '../../schemas/Appointment.model';
         MongooseModule.forFeature([{name: "Doctor", schema: DoctorSchema}]),
         MongooseModule.forFeature([{name: "ClinicJoinRequest", schema: ClinicJoinRequestSchema}]),
         MongooseModule.forFeature([{name: "Appointment", schema: AppointmentSchema}]),
+        MongooseModule.forFeature([{name: "Follow", schema: FollowSchema}]),
         AuthModule,
         ViewModule,
         MemberModule,

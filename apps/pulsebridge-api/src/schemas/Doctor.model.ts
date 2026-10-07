@@ -45,6 +45,11 @@ const DoctorSchema = new Schema(
 			default: 0,
 		},
 
+		doctorFollowers: {
+			type: Number,
+			default: 0,
+		},
+
 		doctorRank: {
 			type: Number,
 			default: 0,

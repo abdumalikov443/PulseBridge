@@ -19,6 +19,8 @@ export enum Message {
     NOT_ALLOWED_REQUEST = "Not Allowed Request",
     PROVIDE_ALLOWED_FORMAT = "Please provide , jpg, jpeg or png images",
     SELF_SUBSCRIPTION_DENIED = "Self subscription is denied!",
+    ALREADY_FOLLOWING = "You already follow this!",
+    NOT_FOLLOWING = "You do not follow this!",
 
     NO_CLINIC = "No clinic is linked to this account!",
     DOCTOR_REQUEST_EXISTS = "You already have a pending join request!",

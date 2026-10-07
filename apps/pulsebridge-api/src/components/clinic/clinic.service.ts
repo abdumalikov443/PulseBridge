@@ -10,7 +10,7 @@ import { ClinicStatus } from "../../libs/enums/clinic.enum";
 import { ViewGroup } from "../../libs/enums/view.enum";
 import { LikeGroup } from "../../libs/enums/like.enum";
 import { StatisticModifier, T } from "../../libs/types/common";
-import { lookupAuthMemberLiked, lookupMember, shapeIntoSearchRegex } from "../../libs/config";
+import { lookupAuthMemberFollowed, lookupAuthMemberLiked, lookupMember, shapeIntoSearchRegex } from "../../libs/config";
 import { MemberService } from "../member/member.service";
 import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
@@ -29,6 +29,7 @@ export class ClinicService {
         @InjectModel("Doctor") private readonly doctorModel: Model<Doctor>,
         @InjectModel("ClinicJoinRequest") private readonly requestModel: Model<ClinicJoinRequest>,
         @InjectModel("Appointment") private readonly appointmentModel: Model<any>,
+        @InjectModel("Follow") private readonly followModel: Model<any>,
         private memberService: MemberService,
         private viewService: ViewService,
         private likeService: LikeService,
@@ -53,6 +54,8 @@ export class ClinicService {
             }
             const likeInput = { memberId: memberId, likeRefId: clinicId, likeGroup: LikeGroup.CLINIC };
             targetClinic.meLiked = await this.likeService.checkLikeExistence(likeInput);
+            const followed = await this.followModel.exists({ followerId: memberId, followRefId: clinicId }).exec();
+            targetClinic.meFollowed = followed ? [{ followerId: memberId, followRefId: clinicId, myFollowing: true }] : [];
         }
         // @ts-ignore
         targetClinic.memberData = await this.memberService.getMember(null, targetClinic.memberId);
@@ -134,6 +137,7 @@ export class ClinicService {
                             {$skip: (input.page - 1) * input.limit},
                             {$limit: input.limit},
                             lookupAuthMemberLiked(memberId),
+                            lookupAuthMemberFollowed(memberId),
                             lookupMember,
                             { $unwind: '$memberData'},
                         ],

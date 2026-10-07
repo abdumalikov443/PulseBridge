@@ -1,30 +1,24 @@
 import { Field, ObjectType } from '@nestjs/graphql';
 import { ObjectId } from 'mongoose';
+import { FollowGroup } from '../../enums/follow.enum';
 import { Member, TotalCounter } from '../member/member';
-import { MeLiked } from '../like/like';
+import { Doctor } from '../doctor/doctor';
+import { Clinic } from '../clinic/clinic';
+import { MeFollowed } from './me-followed';
 
 @ObjectType()
-export class MeFollowed {
-	@Field(() => String)
-	followingId: ObjectId;
-
-	@Field(() => String)
-	followerId: ObjectId;
-
-	@Field(() => Boolean)
-	myFollowing: boolean;
-}
-
-@ObjectType()
-export class Follower {
+export class Follow {
 	@Field(() => String)
 	_id: ObjectId;
 
 	@Field(() => String)
-	followingId: ObjectId;
+	followerId: ObjectId;
+
+	@Field(() => FollowGroup)
+	followGroup: FollowGroup;
 
 	@Field(() => String)
-	followerId: ObjectId;
+	followRefId: ObjectId;
 
 	@Field(() => Date)
 	createdAt: Date;
@@ -34,58 +28,26 @@ export class Follower {
 
 	/** from aggregation **/
 
-	@Field(() => [MeLiked], { nullable: true })
-	meLiked?: MeLiked[];
-
+	// does the viewer follow the same doctor / clinic
 	@Field(() => [MeFollowed], { nullable: true })
 	meFollowed?: MeFollowed[];
 
+	// getFollowers: who follows
 	@Field(() => Member, { nullable: true })
 	followerData?: Member;
+
+	// getMemberFollowings: what is followed (one of them)
+	@Field(() => Doctor, { nullable: true })
+	doctorData?: Doctor;
+
+	@Field(() => Clinic, { nullable: true })
+	clinicData?: Clinic;
 }
 
 @ObjectType()
-export class Following {
-	@Field(() => String)
-	_id: ObjectId;
-
-	@Field(() => String)
-	followingId: ObjectId;
-
-	@Field(() => String)
-	followerId: ObjectId;
-
-	@Field(() => Date)
-	createdAt: Date;
-
-	@Field(() => Date)
-	updatedAt: Date;
-
-	/** from aggregation **/
-
-	@Field(() => [MeLiked], { nullable: true })
-	meLiked?: MeLiked[];
-
-	@Field(() => [MeFollowed], { nullable: true })
-	meFollowed?: MeFollowed[];
-
-	@Field(() => Member, { nullable: true })
-	followingData?: Member;
-}
-
-@ObjectType()
-export class Followings {
-	@Field(() => [Following])
-	list: Following[];
-
-	@Field(() => [TotalCounter], { nullable: true })
-	metaCounter: TotalCounter[];
-}
-
-@ObjectType()
-export class Followers {
-	@Field(() => [Follower])
-	list: Follower[];
+export class Follows {
+	@Field(() => [Follow])
+	list: Follow[];
 
 	@Field(() => [TotalCounter], { nullable: true })
 	metaCounter: TotalCounter[];

@@ -1,13 +1,23 @@
 import { Schema } from 'mongoose';
+import { FollowGroup } from '../libs/enums/follow.enum';
 
 const FollowSchema = new Schema(
 	{
-		followingId: {
+		// member who follows
+		followerId: {
 			type: Schema.Types.ObjectId,
+			required: true,
+			ref: 'Member',
+		},
+
+		followGroup: {
+			type: String,
+			enum: FollowGroup,
 			required: true,
 		},
 
-		followerId: {
+		// doctors._id or clinics._id (same ids as likes, comments, appointments)
+		followRefId: {
 			type: Schema.Types.ObjectId,
 			required: true,
 		},
@@ -15,6 +25,6 @@ const FollowSchema = new Schema(
 	{ timestamps: true, collection: "follows" },
 );
 
-FollowSchema.index({ followingId: 1, followerId: 1 }, { unique: true });
+FollowSchema.index({ followerId: 1, followRefId: 1 }, { unique: true });
 
 export default FollowSchema;

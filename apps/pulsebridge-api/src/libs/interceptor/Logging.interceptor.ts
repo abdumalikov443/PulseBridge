@@ -20,7 +20,13 @@ export class LoggingInterceptor implements NestInterceptor {
         } else if (requestType === "graphql") {
             /* (1) Print request */
             const gqlContext = GqlExecutionContext.create(context); // returns graphql context
-            this.logger.log(`${this.stringify(gqlContext.getContext().req.body)}`, "REQUEST");
+            const body = gqlContext.getContext().req.body;
+            // AI intake carries health data: log only that it happened
+            if (JSON.stringify(body ?? {}).toLowerCase().includes("intake")) {
+                this.logger.log("[intake request hidden]", "REQUEST");
+                return next.handle();
+            }
+            this.logger.log(`${this.stringify(body)}`, "REQUEST");
 
             /* (2) Errors handling via GraphQL */
 

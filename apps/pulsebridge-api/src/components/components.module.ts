@@ -10,6 +10,7 @@ import { FollowModule } from './follow/follow.module';
 import { ArticleModule } from './article/article.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { NotificationModule } from './notification/notification.module';
+import { IntakeModule } from './intake/intake.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationModule } from './notification/notification.module';
     DoctorModule,
     AppointmentModule,
     NotificationModule,
+    IntakeModule,
     ArticleModule,
     LikeModule,
     ViewModule,

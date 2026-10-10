@@ -18,6 +18,7 @@
  *   clinics        working hours 09:00-18:00 where missing
  *   follows        member->member follows become DOCTOR/CLINIC profile follows (others deleted),
  *                  old followingId index dropped, follower counters recalculated
+ *   comments       ACTIVE comments of deleted articles -> DELETE; doctor/clinic/article comment counters recalculated
  *   properties     collection dropped
  */
 require('dotenv').config();
@@ -163,6 +164,25 @@ async function main() {
 		}
 		for (const g of await follows.aggregate([{ $group: { _id: '$followerId', n: { $sum: 1 } } }]).toArray()) {
 			await members.updateOne({ _id: g._id }, { $set: { memberFollowings: g.n } });
+		}
+	}, true);
+
+	// comments of deleted articles were left ACTIVE before the cascade existed
+	const comments = db.collection('comments');
+	const deletedArticleIds = (await articles.find({ articleStatus: 'DELETE' }, { projection: { _id: 1 } }).toArray()).map((a) => a._id);
+	const orphanFilter = { commentGroup: 'ARTICLE', commentRefId: { $in: deletedArticleIds }, commentStatus: 'ACTIVE' };
+	await step('ACTIVE comments of deleted articles set to DELETE', await comments.countDocuments(orphanFilter), () =>
+		comments.updateMany(orphanFilter, { $set: { commentStatus: 'DELETE' } }),
+	);
+	// counters counted only ACTIVE comments once deletes/blocks started to decrement them
+	await step('comment counters recalculated from ACTIVE comments', await comments.countDocuments(), async () => {
+		await doctors.updateMany({}, { $set: { doctorComments: 0 } });
+		await clinics.updateMany({}, { $set: { clinicComments: 0 } });
+		await articles.updateMany({}, { $set: { articleComments: 0 } });
+		const targets = { DOCTOR: [doctors, 'doctorComments'], CLINIC: [clinics, 'clinicComments'], ARTICLE: [articles, 'articleComments'] };
+		for (const g of await comments.aggregate([{ $match: { commentStatus: 'ACTIVE' } }, { $group: { _id: { group: '$commentGroup', ref: '$commentRefId' }, n: { $sum: 1 } } }]).toArray()) {
+			const target = targets[g._id.group];
+			if (target) await target[0].updateOne({ _id: g._id.ref }, { $set: { [target[1]]: g.n } });
 		}
 	}, true);
 

@@ -19,6 +19,7 @@ import { NotificationGroup, NotificationType } from '../../libs/enums/notificati
 import { Member } from '../../libs/dto/member/member';
 import { MemberType } from '../../libs/enums/member.enum';
 import { ClinicStatus } from '../../libs/enums/clinic.enum';
+import { CommentGroup, CommentStatus } from '../../libs/enums/comment.enum';
 
 @Injectable()
 export class ArticleService {
@@ -26,6 +27,7 @@ export class ArticleService {
         @InjectModel("Article") private readonly articleModel: Model<Article>,
         @InjectModel("Doctor") private readonly doctorModel: Model<any>,
         @InjectModel("Clinic") private readonly clinicModel: Model<any>,
+        @InjectModel("Comment") private readonly commentModel: Model<any>,
         private memberService: MemberService,
         private viewService: ViewService,
         private likeService: LikeService,
@@ -104,6 +106,7 @@ export class ArticleService {
                 targetKey: 'memberArticles',
                 modifier: -1
             });
+            return await this.deleteArticleComments(result._id);
         }
 
         return result;
@@ -225,6 +228,7 @@ export class ArticleService {
                 targetKey: 'memberArticles',
                 modifier: -1
             });
+            return await this.deleteArticleComments(result._id);
         }
 
         return result;
@@ -239,6 +243,21 @@ export class ArticleService {
         if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
 
         return result;
+    }
+
+    // a deleted article takes its comments with it: ACTIVE ones become DELETE (BLOCK stays), counter goes to 0
+    private async deleteArticleComments(articleId: ObjectId): Promise<Article> {
+        await this.commentModel
+            .updateMany(
+                { commentGroup: CommentGroup.ARTICLE, commentRefId: articleId, commentStatus: CommentStatus.ACTIVE },
+                { commentStatus: CommentStatus.DELETE },
+            )
+            .exec();
+        return await this.articleModel.findByIdAndUpdate(articleId, { articleComments: 0 }, { new: true }).exec() as unknown as Article;
+    }
+
+    public async isActiveArticle(articleId: ObjectId): Promise<boolean> {
+        return !!(await this.articleModel.exists({ _id: articleId, articleStatus: ArticleStatus.ACTIVE }).exec());
     }
 
     public async articleStatsEditor(input: StatisticModifier): Promise<Article> {

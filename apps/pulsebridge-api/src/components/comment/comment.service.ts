@@ -26,6 +26,10 @@ export class CommentService {
 
     public async createComment(memberId: ObjectId, input: CommentInput): Promise<Comment> {
         input.memberId = memberId;
+        // a deleted article takes no new comments
+        if (input.commentGroup === CommentGroup.ARTICLE && !(await this.articleService.isActiveArticle(input.commentRefId))) {
+            throw new BadRequestException(Message.NO_DATA_FOUND);
+        }
 
         let result = null;
         try { //@ts-ignore
@@ -36,30 +40,7 @@ export class CommentService {
         }
 
         // owner of the commented target receives the notification
-        let target: { memberId: ObjectId } | null = null;
-        switch (input.commentGroup) {
-            case CommentGroup.DOCTOR:
-                target = await this.doctorService.doctorStatsEditor({
-                    _id: input.commentRefId,
-                    targetKey: "doctorComments",
-                    modifier: 1
-                });
-                break;
-            case CommentGroup.CLINIC:
-                target = await this.clinicService.clinicStatsEditor({
-                    _id: input.commentRefId,
-                    targetKey: "clinicComments",
-                    modifier: 1
-                });
-                break;
-            case CommentGroup.ARTICLE:
-                target = await this.articleService.articleStatsEditor({
-                    _id: input.commentRefId,
-                    targetKey: "articleComments",
-                    modifier: 1
-                });
-                break;
-        }
+        const target = await this.commentStatsEditor(input.commentGroup, input.commentRefId, 1);
         if (!result) throw new InternalServerErrorException(Message.CREATE_FAILED);
 
         if (target) {
@@ -82,13 +63,29 @@ export class CommentService {
         if (commentStatus === CommentStatus.BLOCK) throw new BadRequestException(Message.NOT_ALLOWED_REQUEST);
 
         const result = await this.commentModel
-            .findOneAndUpdate( 
-                { _id: _id, memberId: memberId, commentStatus: CommentStatus.ACTIVE }, 
+            .findOneAndUpdate(
+                { _id: _id, memberId: memberId, commentStatus: CommentStatus.ACTIVE },
                 input, { new: true }
             );
 
         if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
+        // only ACTIVE comments are counted
+        if (commentStatus === CommentStatus.DELETE) await this.commentStatsEditor(result.commentGroup, result.commentRefId, -1);
         return result;
+    }
+
+    // keeps doctorComments / clinicComments / articleComments equal to the number of ACTIVE comments
+    private async commentStatsEditor(group: CommentGroup, refId: ObjectId, modifier: number): Promise<{ memberId: ObjectId } | null> {
+        switch (group) {
+            case CommentGroup.DOCTOR:
+                return await this.doctorService.doctorStatsEditor({ _id: refId, targetKey: "doctorComments", modifier: modifier });
+            case CommentGroup.CLINIC:
+                return await this.clinicService.clinicStatsEditor({ _id: refId, targetKey: "clinicComments", modifier: modifier });
+            case CommentGroup.ARTICLE:
+                return await this.articleService.articleStatsEditor({ _id: refId, targetKey: "articleComments", modifier: modifier });
+            default:
+                return null;
+        }
     }
 
     public async getComments(memberId: ObjectId, input: CommentsInquiry): Promise<Comments> {
@@ -120,18 +117,22 @@ export class CommentService {
     /** ADMIN **/
 
     public async updateCommentByAdmin(input: CommentUpdate): Promise<Comment> {
-        const result = await this.commentModel
-            .findOneAndUpdate({ _id: input._id }, input, { new: true })
-            .exec();
+        // the document before the update tells whether it was counted
+        const before = await this.commentModel.findOneAndUpdate({ _id: input._id }, input).exec();
+        if (!before) throw new InternalServerErrorException(Message.UPDATE_FAILED);
 
-        if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
-        return result;
+        const wasActive = before.commentStatus === CommentStatus.ACTIVE;
+        const isActive = (input.commentStatus ?? before.commentStatus) === CommentStatus.ACTIVE;
+        if (wasActive !== isActive) await this.commentStatsEditor(before.commentGroup, before.commentRefId, isActive ? 1 : -1);
+
+        return await this.commentModel.findById(input._id).exec() as unknown as Comment;
     }
 
     public async removeCommentByAdmin(input: ObjectId): Promise<Comment> {
         const result = await this.commentModel.findOneAndDelete({ _id: input });
         if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
 
+        if (result.commentStatus === CommentStatus.ACTIVE) await this.commentStatsEditor(result.commentGroup, result.commentRefId, -1);
         return result;
     }
 }

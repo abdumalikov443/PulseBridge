@@ -1,6 +1,7 @@
 import mongoose, { Schema } from 'mongoose';
-import { NoticeCategory, NoticeStatus } from '../libs/enums/notice.enum';
+import { FaqTopic, NoticeCategory, NoticeStatus } from '../libs/enums/notice.enum';
 
+// FAQ and notices, managed by ADMIN
 const NoticeSchema = new Schema(
 	{
 		noticeCategory: {
@@ -15,6 +16,13 @@ const NoticeSchema = new Schema(
 			default: NoticeStatus.ACTIVE,
 		},
 
+		// only for FAQ, null for NOTICE
+		faqTopic: {
+			type: String,
+			enum: [...Object.values(FaqTopic), null],
+			default: null,
+		},
+
 		noticeTitle: {
 			type: String,
 			required: true,
@@ -24,7 +32,13 @@ const NoticeSchema = new Schema(
 			type: String,
 			required: true,
 		},
-		
+
+		// pinned ones are listed first
+		noticePinned: {
+			type: Boolean,
+			default: false,
+		},
+
 		memberId: {
 			type: Schema.Types.ObjectId,
 			required: true,
@@ -33,5 +47,7 @@ const NoticeSchema = new Schema(
 	},
 	{ timestamps: true, collection: 'notices' },
 );
+
+NoticeSchema.index({ noticeCategory: 1, noticeStatus: 1, noticePinned: -1, createdAt: -1 });
 
 export default NoticeSchema;

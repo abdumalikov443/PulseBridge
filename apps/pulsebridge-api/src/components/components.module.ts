@@ -11,6 +11,7 @@ import { ArticleModule } from './article/article.module';
 import { AppointmentModule } from './appointment/appointment.module';
 import { NotificationModule } from './notification/notification.module';
 import { IntakeModule } from './intake/intake.module';
+import { NoticeModule } from './notice/notice.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { IntakeModule } from './intake/intake.module';
     AppointmentModule,
     NotificationModule,
     IntakeModule,
+    NoticeModule,
     ArticleModule,
     LikeModule,
     ViewModule,

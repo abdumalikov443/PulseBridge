@@ -45,6 +45,8 @@ export enum Message {
     INVALID_APPOINTMENT_DATE = "Invalid appointment date, use YYYY-MM-DD!",
     PAST_APPOINTMENT = "Appointment time must be in the future!",
     SELF_APPOINTMENT_DENIED = "You cannot book an appointment with yourself!",
+    FAQ_TOPIC_REQUIRED = "FAQ needs a faqTopic!",
+    FAQ_TOPIC_ONLY_FOR_FAQ = "faqTopic is only for FAQ!",
 }
 
 export enum Direction {

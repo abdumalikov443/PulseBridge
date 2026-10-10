@@ -11,6 +11,7 @@ export const availableDoctorSorts = ["createdAt", "updatedAt", "doctorLikes", "d
 export const availableAppointmentSorts = ["createdAt", "updatedAt", "appointmentDate"];
 export const availableArticleSorts = ['createdAt', 'updatedAt', 'articleLikes', 'articleViews'];
 export const availableCommentSorts = ['createdAt', 'updatedAt'];
+export const availableNoticeSorts = ['createdAt', 'updatedAt'];
 
 
 // user text used inside $regex must be escaped (ReDoS / regex injection)

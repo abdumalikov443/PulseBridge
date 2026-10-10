@@ -19,6 +19,7 @@
  *   follows        member->member follows become DOCTOR/CLINIC profile follows (others deleted),
  *                  old followingId index dropped, follower counters recalculated
  *   comments       ACTIVE comments of deleted articles -> DELETE; doctor/clinic/article comment counters recalculated
+ *   notices        TERMS/INQUIRY deleted; FAQ without faqTopic -> OTHER; noticePinned = false where missing
  *   properties     collection dropped
  */
 require('dotenv').config();
@@ -185,6 +186,19 @@ async function main() {
 			if (target) await target[0].updateOne({ _id: g._id.ref }, { $set: { [target[1]]: g.n } });
 		}
 	}, true);
+
+	// notices: only FAQ | NOTICE now; FAQ needs a faqTopic
+	const notices = db.collection('notices');
+	const oldNoticeFilter = { noticeCategory: { $nin: ['FAQ', 'NOTICE'] } };
+	await step('notices TERMS/INQUIRY deleted', await notices.countDocuments(oldNoticeFilter), () =>
+		notices.deleteMany(oldNoticeFilter),
+	);
+	await step('FAQ without faqTopic set to OTHER', await notices.countDocuments({ noticeCategory: 'FAQ', faqTopic: { $in: [null] } }), () =>
+		notices.updateMany({ noticeCategory: 'FAQ', faqTopic: { $in: [null] } }, { $set: { faqTopic: 'OTHER' } }),
+	);
+	await step('notices without noticePinned set to false', await notices.countDocuments({ noticePinned: { $exists: false } }), () =>
+		notices.updateMany({ noticePinned: { $exists: false } }, { $set: { noticePinned: false } }),
+	);
 
 	if (await hasCollection(db, 'properties')) {
 		await step('properties collection dropped', await db.collection('properties').countDocuments(), () =>

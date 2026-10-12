@@ -22,6 +22,7 @@ import { ClinicJoinRequest } from "../../libs/dto/doctor/join-request";
 import { JoinRequestStatus } from "../../libs/enums/doctor.enum";
 import { AppointmentStatus } from "../../libs/enums/appointment.enum";
 import { isValidSchedule, withScheduleDefaults } from "../../libs/schedule";
+import { CLINIC_RANK_KEYS, clinicRankExpr, statsWithRankPipeline } from "../../libs/rank";
 
 @Injectable()
 export class ClinicService {
@@ -129,7 +130,10 @@ export class ClinicService {
         const { clinicType, text } = input.search;
         const match: T = { clinicStatus: ClinicStatus.ACTIVE };
         if (clinicType) match.clinicType = clinicType;
+        // equal ranks / likes: newest first, stable pages
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
+        if (!('createdAt' in sort)) sort.createdAt = Direction.DESC;
+        sort._id = Direction.DESC;
 
         if (text) match.clinicName = { $regex: shapeIntoSearchRegex(text) };
 
@@ -254,10 +258,12 @@ export class ClinicService {
         return result;
     }
 
+    // likes / followers / comments / views also recalculate clinicRank in the same update
     public async clinicStatsEditor(input: StatisticModifier): Promise<Clinic> {
         const { _id, targetKey, modifier } = input;
+        const pipeline = statsWithRankPipeline(targetKey, modifier, 'clinicRank', CLINIC_RANK_KEYS, clinicRankExpr);
         return await this.clinicModel
-            .findByIdAndUpdate(_id, { $inc: { [targetKey]: modifier } }, { new: true })
+            .findByIdAndUpdate(_id, pipeline, { new: true })
             .exec() as unknown as Clinic;
     }
 }

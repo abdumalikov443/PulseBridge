@@ -21,6 +21,7 @@ import { ViewService } from "../view/view.service";
 import { LikeService } from "../like/like.service";
 import { NotificationService } from "../notification/notification.service";
 import { NotificationGroup, NotificationType } from "../../libs/enums/notification.enum";
+import { DOCTOR_RANK_KEYS, doctorRankExpr, statsWithRankPipeline } from "../../libs/rank";
 
 @Injectable()
 export class DoctorService {
@@ -211,7 +212,10 @@ export class DoctorService {
     public async getDoctors(memberId: ObjectId, input: DoctorsInquiry): Promise<Doctors> {
         const { clinicId, specialtyList, text } = input.search;
         const match: T = {};
+        // equal ranks / likes: newest first, stable pages
         const sort: T = { [input?.sort ?? 'createdAt'] : input?.direction ?? Direction.DESC };
+        if (!('createdAt' in sort)) sort.createdAt = Direction.DESC;
+        sort._id = Direction.DESC;
 
         if (clinicId) match.clinicId = shapeIntoMongoObjectId(clinicId);
         if (specialtyList && specialtyList.length) match.specialty = { $in: specialtyList };
@@ -340,10 +344,12 @@ export class DoctorService {
         return await this.getDoctorById(before._id);
     }
 
+    // likes / followers / comments / views also recalculate doctorRank in the same update
     public async doctorStatsEditor(input: StatisticModifier): Promise<Doctor> {
         const { _id, targetKey, modifier } = input;
+        const pipeline = statsWithRankPipeline(targetKey, modifier, 'doctorRank', DOCTOR_RANK_KEYS, doctorRankExpr);
         return await this.doctorModel
-            .findByIdAndUpdate(_id, { $inc: { [targetKey]: modifier } }, { new: true })
+            .findByIdAndUpdate(_id, pipeline, { new: true })
             .exec() as unknown as Doctor;
     }
 }

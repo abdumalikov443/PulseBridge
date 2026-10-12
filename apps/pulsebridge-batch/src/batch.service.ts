@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Doctor } from 'apps/pulsebridge-api/src/libs/dto/doctor/doctor';
 import { Clinic } from 'apps/pulsebridge-api/src/libs/dto/clinic/clinic';
-import { ClinicStatus } from 'apps/pulsebridge-api/src/libs/enums/clinic.enum';
+import { clinicRankExpr, doctorRankExpr } from 'apps/pulsebridge-api/src/libs/rank';
 import { Model } from 'mongoose';
 
+// the API keeps ranks up to date on every like / follow / comment / view;
+// the nightly run only recalculates them from the counters as a safety net (no reset to 0)
 @Injectable()
 export class BatchService {
   constructor (
@@ -12,45 +14,12 @@ export class BatchService {
     @InjectModel("Clinic") private readonly clinicModel: Model<Clinic>
   ) {}
 
-  public async batchRollback(): Promise<void> {
-    await this.doctorModel
-      .updateMany({}, { doctorRank: 0 })
-      .exec();
-
-    await this.clinicModel
-      .updateMany(
-        { clinicStatus: ClinicStatus.ACTIVE },
-        { clinicRank: 0 },
-      ).exec();
-  }
-
   public async batchTopDoctors(): Promise<void> {
-    const doctors: Doctor[] = await this.doctorModel
-      .find({ doctorRank: 0 })
-      .exec();
-
-    const promisedList = doctors.map(async (ele: Doctor) => {
-      const { _id, doctorLikes, doctorViews, doctorComments } = ele;
-      const rank = doctorLikes * 2 + doctorComments * 2 + doctorViews * 1;
-      return await this.doctorModel.findByIdAndUpdate(_id, { doctorRank: rank });
-    });
-    await Promise.all(promisedList);
+    await this.doctorModel.updateMany({}, [{ $set: { doctorRank: doctorRankExpr } }]).exec();
   }
 
   public async batchTopClinics(): Promise<void> {
-    const clinics: Clinic[] = await this.clinicModel
-      .find({
-        clinicStatus: ClinicStatus.ACTIVE,
-        clinicRank: 0
-      })
-      .exec();
-
-    const promisedList = clinics.map(async (ele: Clinic) => {
-      const { _id, clinicLikes, clinicViews, clinicComments } = ele;
-      const rank = clinicLikes * 2 + clinicComments * 2 + clinicViews * 1;
-      return await this.clinicModel.findByIdAndUpdate(_id, { clinicRank: rank });
-    });
-    await Promise.all(promisedList);
+    await this.clinicModel.updateMany({}, [{ $set: { clinicRank: clinicRankExpr } }]).exec();
   }
 
   public getHello(): string {

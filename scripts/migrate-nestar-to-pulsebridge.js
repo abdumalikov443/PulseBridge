@@ -21,6 +21,7 @@
  *   comments       ACTIVE comments of deleted articles -> DELETE; doctor/clinic/article comment counters recalculated
  *   notices        TERMS/INQUIRY deleted; FAQ without faqTopic -> OTHER; noticePinned = false where missing
  *   notifications  LIKE/FOLLOW/COMMENT linked to their source (notificationRefId, commentId); stale ones deleted
+ *   doctors/clinics  doctorRank / clinicRank recalculated (like×20 + follower×30 + comment×10 + view)
  *   properties     collection dropped
  */
 require('dotenv').config();
@@ -217,6 +218,16 @@ async function main() {
 			if (!alive) await notifications.deleteOne({ _id: n._id });
 			else await notifications.updateOne({ _id: n._id }, { $set: { notificationRefId: refId, ...(n.notificationType === 'COMMENT' ? { commentId: alive._id } : {}) } });
 		}
+	});
+
+	// same formula as apps/pulsebridge-api/src/libs/rank.ts (like×20 + follower×30 + comment×10 + view)
+	const rank = (p) => ({ $add: [
+		{ $multiply: [{ $ifNull: [`$${p}Likes`, 0] }, 20] }, { $multiply: [{ $ifNull: [`$${p}Followers`, 0] }, 30] },
+		{ $multiply: [{ $ifNull: [`$${p}Comments`, 0] }, 10] }, { $ifNull: [`$${p}Views`, 0] },
+	] });
+	await step('doctorRank / clinicRank recalculated from the counters', await doctors.countDocuments() + await clinics.countDocuments(), async () => {
+		await doctors.updateMany({}, [{ $set: { doctorRank: rank('doctor') } }]);
+		await clinics.updateMany({}, [{ $set: { clinicRank: rank('clinic') } }]);
 	});
 
 	if (await hasCollection(db, 'properties')) {

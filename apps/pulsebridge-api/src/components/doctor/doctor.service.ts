@@ -312,7 +312,10 @@ export class DoctorService {
                 notificationDesc: "Your doctor profile got a new like",
                 authorId: memberId,
                 receiverId: target.memberId,
+                notificationRefId: likeRefId,
             });
+        } else {
+            await this.notificationService.removeRefNotification(NotificationType.LIKE, memberId, likeRefId);
         }
         return result;
     }

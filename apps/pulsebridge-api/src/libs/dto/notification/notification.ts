@@ -29,6 +29,13 @@ export class Notification {
 	@Field(() => String)
 	receiverId: ObjectId;
 
+	// doctor / clinic / article the notification is about
+	@Field(() => String, { nullable: true })
+	notificationRefId?: ObjectId;
+
+	@Field(() => String, { nullable: true })
+	commentId?: ObjectId;
+
 	@Field(() => String, { nullable: true })
 	articleId?: ObjectId;
 

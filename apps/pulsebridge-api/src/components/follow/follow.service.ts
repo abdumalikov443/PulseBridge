@@ -46,6 +46,7 @@ export class FollowService {
             notificationDesc: `Someone started following your ${followGroup === FollowGroup.DOCTOR ? 'doctor profile' : 'clinic'}`,
             authorId: followerId,
             receiverId: ownerId,
+            notificationRefId: refId,
         });
         return result;
     }
@@ -58,6 +59,7 @@ export class FollowService {
         if (!result) throw new BadRequestException(Message.NOT_FOLLOWING);
 
         await this.followStatsEditor(followerId, input, -1);
+        await this.notificationService.removeRefNotification(NotificationType.FOLLOW, followerId, input.refId);
         return result;
     }
 

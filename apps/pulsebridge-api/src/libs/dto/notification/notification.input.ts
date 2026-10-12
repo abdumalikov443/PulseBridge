@@ -11,6 +11,8 @@ export class NotificationInput {
 	notificationDesc?: string;
 	authorId: ObjectId;
 	receiverId: ObjectId;
+	notificationRefId?: ObjectId;
+	commentId?: ObjectId;
 	articleId?: ObjectId;
 	appointmentId?: ObjectId;
 }

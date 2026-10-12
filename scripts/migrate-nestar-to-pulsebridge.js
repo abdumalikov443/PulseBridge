@@ -20,6 +20,7 @@
  *                  old followingId index dropped, follower counters recalculated
  *   comments       ACTIVE comments of deleted articles -> DELETE; doctor/clinic/article comment counters recalculated
  *   notices        TERMS/INQUIRY deleted; FAQ without faqTopic -> OTHER; noticePinned = false where missing
+ *   notifications  LIKE/FOLLOW/COMMENT linked to their source (notificationRefId, commentId); stale ones deleted
  *   properties     collection dropped
  */
 require('dotenv').config();
@@ -199,6 +200,24 @@ async function main() {
 	await step('notices without noticePinned set to false', await notices.countDocuments({ noticePinned: { $exists: false } }), () =>
 		notices.updateMany({ noticePinned: { $exists: false } }, { $set: { noticePinned: false } }),
 	);
+
+	// LIKE / FOLLOW / COMMENT notifications get their source; ones whose like / follow / ACTIVE comment is gone are deleted
+	const likes = db.collection('likes');
+	const sourceTypes = { notificationType: { $in: ['LIKE', 'FOLLOW', 'COMMENT'] } };
+	const noSource = { ...sourceTypes, notificationRefId: { $exists: false } };
+	await step('LIKE/FOLLOW/COMMENT notifications linked to their source (stale ones deleted)', await notifications.countDocuments(noSource), async () => {
+		for (const n of await notifications.find(noSource).toArray()) {
+			let refId = n.articleId ?? null;
+			if (n.notificationGroup === 'DOCTOR') refId = (await doctors.findOne({ memberId: n.receiverId }))?._id ?? null;
+			if (n.notificationGroup === 'CLINIC') refId = (await clinics.findOne({ memberId: n.receiverId }))?._id ?? null;
+			let alive = null;
+			if (refId && n.notificationType === 'LIKE') alive = await likes.findOne({ memberId: n.authorId, likeGroup: n.notificationGroup, likeRefId: refId });
+			if (refId && n.notificationType === 'FOLLOW') alive = await follows.findOne({ followerId: n.authorId, followGroup: n.notificationGroup, followRefId: refId });
+			if (refId && n.notificationType === 'COMMENT') alive = await comments.findOne({ memberId: n.authorId, commentGroup: n.notificationGroup, commentRefId: refId, commentContent: n.notificationDesc, commentStatus: 'ACTIVE' });
+			if (!alive) await notifications.deleteOne({ _id: n._id });
+			else await notifications.updateOne({ _id: n._id }, { $set: { notificationRefId: refId, ...(n.notificationType === 'COMMENT' ? { commentId: alive._id } : {}) } });
+		}
+	});
 
 	if (await hasCollection(db, 'properties')) {
 		await step('properties collection dropped', await db.collection('properties').countDocuments(), () =>

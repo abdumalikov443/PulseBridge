@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, ObjectId } from 'mongoose';
 import { Notification, Notifications } from '../../libs/dto/notification/notification';
 import { NotificationInput, NotificationsInquiry } from '../../libs/dto/notification/notification.input';
-import { NotificationStatus } from '../../libs/enums/notification.enum';
+import { NotificationStatus, NotificationType } from '../../libs/enums/notification.enum';
 import { Direction, Message } from '../../libs/enums/common.enum';
 import { T } from '../../libs/types/common';
 
@@ -21,6 +21,19 @@ export class NotificationService {
         } catch (err) {
             console.log("Error, Service.model: ", err.message);
         }
+    }
+
+    // unlike / unfollow: the receiver should no longer see it
+    public async removeRefNotification(type: NotificationType, authorId: ObjectId, refId: ObjectId): Promise<void> {
+        await this.notificationModel
+            .deleteMany({ notificationType: type, authorId: authorId, $or: [{ notificationRefId: refId }, { articleId: refId }] })
+            .exec();
+    }
+
+    // comment deleted, blocked or removed
+    public async removeCommentNotifications(commentIds: ObjectId[]): Promise<void> {
+        if (!commentIds.length) return;
+        await this.notificationModel.deleteMany({ notificationType: NotificationType.COMMENT, commentId: { $in: commentIds } }).exec();
     }
 
     public async getNotifications(memberId: ObjectId, input: NotificationsInquiry): Promise<Notifications> {

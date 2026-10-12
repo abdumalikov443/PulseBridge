@@ -173,8 +173,11 @@ export class ArticleService {
                 notificationDesc: `Your article ${target.articleTitle} got a new like`,
                 authorId: memberId,
                 receiverId: target.memberId,
+                notificationRefId: likeRefId,
                 articleId: likeRefId,
             });
+        } else {
+            await this.notificationService.removeRefNotification(NotificationType.LIKE, memberId, likeRefId);
         }
         return result;
     }
@@ -247,12 +250,10 @@ export class ArticleService {
 
     // a deleted article takes its comments with it: ACTIVE ones become DELETE (BLOCK stays), counter goes to 0
     private async deleteArticleComments(articleId: ObjectId): Promise<Article> {
-        await this.commentModel
-            .updateMany(
-                { commentGroup: CommentGroup.ARTICLE, commentRefId: articleId, commentStatus: CommentStatus.ACTIVE },
-                { commentStatus: CommentStatus.DELETE },
-            )
-            .exec();
+        const filter = { commentGroup: CommentGroup.ARTICLE, commentRefId: articleId, commentStatus: CommentStatus.ACTIVE };
+        const commentIds = (await this.commentModel.find(filter, { _id: 1 }).lean().exec()).map((c: any) => c._id);
+        await this.commentModel.updateMany(filter, { commentStatus: CommentStatus.DELETE }).exec();
+        await this.notificationService.removeCommentNotifications(commentIds);
         return await this.articleModel.findByIdAndUpdate(articleId, { articleComments: 0 }, { new: true }).exec() as unknown as Article;
     }
 

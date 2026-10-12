@@ -42,6 +42,17 @@ const NotificationSchema = new Schema(
 			ref: 'Member',
 		},
 
+		// liked / commented / followed doctor, clinic or article: lets an unlike / unfollow remove the notification
+		notificationRefId: {
+			type: Schema.Types.ObjectId,
+		},
+
+		// removed with the comment (author delete, admin BLOCK / remove, article delete)
+		commentId: {
+			type: Schema.Types.ObjectId,
+			ref: 'Comment',
+		},
+
 		articleId: {
 			type: Schema.Types.ObjectId,
 			ref: 'Article',
@@ -54,5 +65,8 @@ const NotificationSchema = new Schema(
 	},
 	{ timestamps: true, collection: 'notifications' },
 );
+
+NotificationSchema.index({ authorId: 1, notificationType: 1, notificationRefId: 1 });
+NotificationSchema.index({ commentId: 1 }, { sparse: true });
 
 export default NotificationSchema;

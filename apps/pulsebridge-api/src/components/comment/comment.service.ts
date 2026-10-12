@@ -31,7 +31,7 @@ export class CommentService {
             throw new BadRequestException(Message.NO_DATA_FOUND);
         }
 
-        let result = null;
+        let result: Comment | null = null;
         try { //@ts-ignore
             result = await this.commentModel.create(input);
         } catch (err) {
@@ -51,6 +51,8 @@ export class CommentService {
                 notificationDesc: input.commentContent,
                 authorId: memberId,
                 receiverId: target.memberId,
+                notificationRefId: input.commentRefId,
+                commentId: result._id,
                 articleId: input.commentGroup === CommentGroup.ARTICLE ? input.commentRefId : undefined,
             });
         }
@@ -70,7 +72,10 @@ export class CommentService {
 
         if (!result) throw new InternalServerErrorException(Message.UPDATE_FAILED);
         // only ACTIVE comments are counted
-        if (commentStatus === CommentStatus.DELETE) await this.commentStatsEditor(result.commentGroup, result.commentRefId, -1);
+        if (commentStatus === CommentStatus.DELETE) {
+            await this.commentStatsEditor(result.commentGroup, result.commentRefId, -1);
+            await this.notificationService.removeCommentNotifications([result._id]);
+        }
         return result;
     }
 
@@ -124,6 +129,7 @@ export class CommentService {
         const wasActive = before.commentStatus === CommentStatus.ACTIVE;
         const isActive = (input.commentStatus ?? before.commentStatus) === CommentStatus.ACTIVE;
         if (wasActive !== isActive) await this.commentStatsEditor(before.commentGroup, before.commentRefId, isActive ? 1 : -1);
+        if (!isActive) await this.notificationService.removeCommentNotifications([before._id]);
 
         return await this.commentModel.findById(input._id).exec() as unknown as Comment;
     }
@@ -133,6 +139,7 @@ export class CommentService {
         if (!result) throw new InternalServerErrorException(Message.REMOVE_FAILED);
 
         if (result.commentStatus === CommentStatus.ACTIVE) await this.commentStatsEditor(result.commentGroup, result.commentRefId, -1);
+        await this.notificationService.removeCommentNotifications([result._id]);
         return result;
     }
 }

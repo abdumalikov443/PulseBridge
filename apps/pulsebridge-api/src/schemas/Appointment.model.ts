@@ -43,6 +43,12 @@ const AppointmentSchema = new Schema(
 			required: true,
 			ref: 'Clinic',
 		},
+
+		// set by the batch server once the reminder notification for this visit was sent
+		appointmentReminded: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	{ timestamps: true, collection: 'appointments' },
 );
@@ -52,5 +58,11 @@ AppointmentSchema.index(
 	{ doctorId: 1, appointmentDate: 1, appointmentTime: 1 },
 	{ unique: true, partialFilterExpression: { appointmentStatus: AppointmentStatus.CONFIRMED } },
 );
+
+// "my appointments" of a patient / doctor / clinic, ordered by date
+AppointmentSchema.index({ memberId: 1, appointmentStatus: 1, appointmentDate: 1 });
+AppointmentSchema.index({ clinicId: 1, appointmentStatus: 1, appointmentDate: 1 });
+// reminder batch: confirmed visits that have not been reminded yet
+AppointmentSchema.index({ appointmentStatus: 1, appointmentReminded: 1, appointmentDate: 1 });
 
 export default AppointmentSchema;

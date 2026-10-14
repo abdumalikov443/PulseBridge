@@ -58,4 +58,8 @@ const DoctorSchema = new Schema(
 	{ timestamps: true, collection: 'doctors' },
 );
 
+// lists: doctors of a clinic, by specialty, top ranked
+DoctorSchema.index({ clinicId: 1, doctorRank: -1 });
+DoctorSchema.index({ specialty: 1, doctorRank: -1 });
+
 export default DoctorSchema;

@@ -15,7 +15,8 @@ import { DoctorService } from '../doctor/doctor.service';
 import { ClinicService } from '../clinic/clinic.service';
 import { NotificationService } from '../notification/notification.service';
 import { AppointmentActor, canChangeAppointmentStatus } from './appointment.policy';
-import { DayAvailability } from '../../libs/dto/appointment/availability';
+import { DayAvailability, NextSlot } from '../../libs/dto/appointment/availability';
+import { Doctor } from '../../libs/dto/doctor/doctor';
 import { Member } from '../../libs/dto/member/member';
 import { getBookableDates, getScheduleSlots, getWeekDay, isOpenDay, withScheduleDefaults } from '../../libs/schedule';
 
@@ -54,6 +55,32 @@ export class AppointmentService {
                 slots: isOpen ? getScheduleSlots(schedule).map((time) => ({ time: time, available: !taken.has(`${date} ${time}`) })) : [],
             };
         });
+    }
+
+    // first free slot for a doctor card, from the clinic data the doctor list already carries (one query)
+    public async getNextAvailable(doctor: Doctor): Promise<NextSlot | null> {
+        if (!doctor.clinicId || !doctor.clinicData) return null;
+        const schedule = withScheduleDefaults(doctor.clinicData);
+        const dates = getBookableDates().filter((date) => isOpenDay(schedule, date));
+        if (!dates.length) return null;
+
+        const booked = await this.appointmentModel
+            .find({
+                doctorId: doctor._id,
+                appointmentStatus: AppointmentStatus.CONFIRMED,
+                appointmentDate: { $in: dates.map((date) => moment.utc(date, 'YYYY-MM-DD').toDate()) },
+            })
+            .select({ appointmentDate: 1, appointmentTime: 1 })
+            .lean()
+            .exec();
+        const taken = new Set(booked.map((a) => `${moment.utc(a.appointmentDate).format('YYYY-MM-DD')} ${a.appointmentTime}`));
+        const slots = getScheduleSlots(schedule);
+
+        for (const date of dates) {
+            const time = slots.find((slot) => !taken.has(`${date} ${slot}`));
+            if (time) return { date, time };
+        }
+        return null;
     }
 
     public async createAppointment(memberId: ObjectId, input: AppointmentInput): Promise<Appointment> {

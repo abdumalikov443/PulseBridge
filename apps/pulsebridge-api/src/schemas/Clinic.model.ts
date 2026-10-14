@@ -103,4 +103,7 @@ const ClinicSchema = new Schema(
 	{ timestamps: true, collection: 'clinics' },
 );
 
+// lists: active clinics, top ranked first
+ClinicSchema.index({ clinicStatus: 1, clinicRank: -1 });
+
 export default ClinicSchema;

@@ -28,3 +28,15 @@ export class DayAvailability {
 	@Field(() => [TimeSlot])
 	slots: TimeSlot[];
 }
+
+// first free slot of a doctor (doctor cards); null when nothing is free in the bookable days
+@ObjectType()
+export class NextSlot {
+	// "YYYY-MM-DD"
+	@Field(() => String)
+	date: string;
+
+	// "HH:mm"
+	@Field(() => String)
+	time: string;
+}

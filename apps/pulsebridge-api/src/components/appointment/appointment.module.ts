@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AppointmentResolver } from './appointment.resolver';
 import { AppointmentService } from './appointment.service';
+import { DoctorAvailabilityResolver } from './doctor-availability.resolver';
 import { AppointmentController } from './appointment.controller';
 import AppointmentSchema from '../../schemas/Appointment.model';
 import { AuthModule } from '../auth/auth.module';
@@ -18,6 +19,6 @@ import { NotificationModule } from '../notification/notification.module';
         NotificationModule
     ],
     controllers: [AppointmentController],
-    providers: [AppointmentResolver, AppointmentService],
+    providers: [AppointmentResolver, DoctorAvailabilityResolver, AppointmentService],
 })
 export class AppointmentModule {}

@@ -34,4 +34,7 @@ const CommentSchema = new Schema(
 	{ timestamps: true, collection: 'comments' },
 );
 
+// comments of an article / doctor / clinic, newest first
+CommentSchema.index({ commentRefId: 1, commentStatus: 1, createdAt: -1 });
+
 export default CommentSchema;

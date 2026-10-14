@@ -69,4 +69,7 @@ const NotificationSchema = new Schema(
 NotificationSchema.index({ authorId: 1, notificationType: 1, notificationRefId: 1 });
 NotificationSchema.index({ commentId: 1 }, { sparse: true });
 
+// the bell: a member's notifications and the unread count
+NotificationSchema.index({ receiverId: 1, notificationStatus: 1, createdAt: -1 });
+
 export default NotificationSchema;

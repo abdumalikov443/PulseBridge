@@ -47,4 +47,8 @@ const ArticleSchema = new Schema(
 	{ timestamps: true, collection: 'articles' },
 );
 
+// community lists (newest) and a member's articles
+ArticleSchema.index({ articleStatus: 1, createdAt: -1 });
+ArticleSchema.index({ memberId: 1, articleStatus: 1, createdAt: -1 });
+
 export default ArticleSchema;
